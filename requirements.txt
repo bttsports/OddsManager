@@ -1,0 +1,12 @@
+dash
+pandas
+dash-bootstrap-components
+mysql-connector-python
+requests
+selenium
+urllib3
+bs4
+beautifulsoup4
+playwright
+flask
+flask-cors

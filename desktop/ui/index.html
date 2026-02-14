@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OddsManager – List Monitors</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>OddsManager</h1>
+      <p class="tagline">X list monitors – create scripts and start monitoring</p>
+      <nav class="tabs">
+        <button type="button" class="tab active" data-tab="monitors">Monitors</button>
+        <button type="button" class="tab" data-tab="notifications">Notifications</button>
+      </nav>
+    </header>
+
+    <div id="panel-monitors" class="tab-panel">
+    <section class="add-monitor">
+      <h2>Create a new monitor</h2>
+      <form id="form-monitor">
+        <label>
+          <span>Monitor name</span>
+          <input type="text" id="input-name" placeholder="e.g. NBA injury list" required />
+        </label>
+        <label>
+          <span>X (Twitter) list URL</span>
+          <input type="url" id="input-list-url" placeholder="https://x.com/i/lists/52021139" required />
+          <small id="list-id-preview"></small>
+        </label>
+        <label>
+          <span>Keywords or phrases (one per line or comma-separated)</span>
+          <textarea id="input-keywords" rows="4" placeholder="injured&#10;is out&#10;ruled out&#10;questionable"></textarea>
+        </label>
+        <label class="inline">
+          <span>Refresh list every</span>
+          <input type="number" id="input-refresh" min="1" max="60" value="1" />
+          <span>minute(s)</span>
+        </label>
+        <div class="actions">
+          <button type="submit">Add monitor</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="monitors">
+      <h2>Your monitors</h2>
+      <div id="monitors-list"></div>
+    </section>
+    </div>
+
+    <div id="panel-notifications" class="tab-panel hidden">
+      <section class="notifications">
+        <h2>Recent tweets (keyword matches)</h2>
+        <p class="meta">From <code>news_sources.mlb_tweets</code>. Run <code>python news/tweets_api.py</code> so the script can save tweets.</p>
+        <div class="actions"><button type="button" id="btn-refresh-tweets">Refresh</button></div>
+        <div id="tweets-list"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
