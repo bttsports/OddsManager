@@ -2,3 +2,6 @@
 *.pem
 __pycache__/
 *.pyc
+
+# Rust / Cargo
+desktop/src-tauri/target/
