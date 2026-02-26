@@ -1,7 +1,9 @@
 """
 Local HTTP API for the desktop app to call Kalshi.
 Run from project root: python betting_outs/kalshi/kalshi_api.py
-Listens on http://127.0.0.1:8766. Loads .env from project root (KALSHI_API_KEY, KALSHI_PRIVATE_KEY_PATH).
+Listens on http://127.0.0.1:8766 by default. Loads .env from project root.
+Env vars: KALSHI_API_KEY, KALSHI_PRIVATE_KEY_PATH, KALSHI_API_PORT, KALSHI_API_HOST.
+Set KALSHI_API_HOST=0.0.0.0 on VPS so the desktop app can connect remotely.
 All routes accept ?env=demo or ?env=prod (default demo).
 """
 import os
@@ -31,6 +33,8 @@ KALSHI_BASE_URL = {"DEMO": "https://demo-api.kalshi.co", "PROD": "https://api.el
 MARKETS_PATH = "/trade-api/v2/markets"
 
 KALSHI_PORT = int(os.getenv("KALSHI_API_PORT", "8766"))
+# Use 0.0.0.0 on VPS so the desktop app can connect remotely; 127.0.0.1 for local-only.
+KALSHI_HOST = os.getenv("KALSHI_API_HOST", "127.0.0.1")
 
 
 def env_from_request():
@@ -231,5 +235,48 @@ def batch_place_orders():
         return jsonify({"error": str(e)}), 500
 
 
+# ---- Orderbook proxy ----
+
+@app.route("/markets/<ticker>/orderbook")
+def market_orderbook(ticker):
+    """Proxy to Kalshi GET /markets/{ticker}/orderbook (no auth required)."""
+    try:
+        env = env_from_request()
+        base = KALSHI_BASE_URL.get(env, KALSHI_BASE_URL["DEMO"])
+        url = f"{base}/trade-api/v2/markets/{ticker}/orderbook"
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        return jsonify(resp.json())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---- Market Making bot control (stubs until bot exists) ----
+
+@app.route("/market-making/strategies", methods=["GET"])
+def market_making_list():
+    """List strategies and status. Stub: returns empty list until bot exists."""
+    return jsonify({"strategies": []})
+
+
+@app.route("/market-making/strategies", methods=["POST"])
+def market_making_create():
+    """Create and start a strategy. Stub: returns 501 until bot exists."""
+    try:
+        body = request.get_json() or {}
+        return jsonify({
+            "error": "Market making bot not implemented yet",
+            "config": body,
+        }), 501
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/market-making/strategy/<strategy_id>/restart", methods=["POST"])
+def market_making_restart(strategy_id):
+    """Restart a stopped strategy. Stub: returns 501 until bot exists."""
+    return jsonify({"error": "Market making bot not implemented yet", "strategy_id": strategy_id}), 501
+
+
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=KALSHI_PORT, debug=False, use_reloader=False)
+    app.run(host=KALSHI_HOST, port=KALSHI_PORT, debug=False, use_reloader=False)

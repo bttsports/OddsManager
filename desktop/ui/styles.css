@@ -790,6 +790,134 @@ button.danger:hover {
   font-size: 0.9rem;
 }
 
+/* Kalshi sub-tabs (Trading, Market Making) */
+.kalshi-sub-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.kalshi-sub-tabs .sub-tab {
+  padding: 0.4rem 0.85rem;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.kalshi-sub-tabs .sub-tab:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+.kalshi-sub-tabs .sub-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.kalshi-section-content.hidden {
+  display: none;
+}
+.mm-markets-list,
+.mm-strategies-list,
+.mm-orderbook-display {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+.mm-strategies-list .strategy-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.mm-stakes-container {
+  margin-top: 0.5rem;
+}
+.mm-toggle-stakes {
+  padding: 0.4rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.mm-toggle-stakes:hover { border-color: var(--muted); }
+.mm-toggle-stakes[aria-expanded="true"] { margin-bottom: 0.5rem; }
+.mm-stakes-list { margin-top: 0.5rem; }
+.mm-stake-row {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+.mm-stake-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-alt, #1a1a1a);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.mm-stake-header:hover { background: var(--border); }
+.mm-stake-ticker { font-family: var(--mono, monospace); font-weight: 600; }
+.mm-stake-title { flex: 1; color: var(--muted); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-stake-form {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+.mm-stake-form.hidden { display: none; }
+.mm-stake-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; font-weight: 600; }
+.mm-stake-form label span { color: #fff; font-weight: 600; }
+.mm-stake-form input,
+.mm-stake-form select {
+  padding: 0.3rem 0.5rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--surface, #232d3f);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.mm-stake-form input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+.mm-global-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.mm-global-row label { display: flex; flex-direction: column; gap: 0.2rem; font-weight: 600; }
+.mm-global-row label span { font-size: 0.9rem; color: #fff; font-weight: 600; }
+.mm-global-row input[type="text"],
+.mm-global-row input[type="number"] {
+  min-width: 280px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--surface, #232d3f);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.mm-global-row input[type="number"] { min-width: auto; }
+.mm-orderbook-display pre {
+  margin: 0;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  background: var(--bg-alt, #1a1a1a);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.kalshi-panel .kalshi-data-section h4 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem 0;
+}
+
 /* Notifications sub-bar (feeds: MLB, Golf, NFL, Politics) */
 .notifications .sub-tabs {
   display: flex;

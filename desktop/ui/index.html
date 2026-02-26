@@ -90,6 +90,12 @@
         </div>
         <p class="meta small">When running, the Kalshi bridge listens on <code>http://localhost:8766</code>.</p>
 
+        <nav id="kalshi-sub-nav" class="sub-tabs kalshi-sub-tabs" aria-label="Kalshi sections">
+          <button type="button" class="sub-tab active" data-kalshi-section="trading">Trading</button>
+          <button type="button" class="sub-tab" data-kalshi-section="market-making">Market Making</button>
+        </nav>
+
+        <div id="kalshi-section-trading" class="kalshi-section-content">
         <div class="kalshi-env-row">
           <label><span>Environment</span></label>
           <select id="kalshi-env">
@@ -159,6 +165,71 @@
           </div>
           <p id="kalshi-markets-request-url" class="kalshi-request-url meta small" aria-live="polite"></p>
           <div id="kalshi-markets-list" class="kalshi-markets-list">—</div>
+        </div>
+        </div>
+
+        <div id="kalshi-section-market-making" class="kalshi-section-content hidden">
+          <h3>Market Making</h3>
+          <p class="meta small">Configure per-stake market making for an event. Bot runs on VPS (Digital Ocean). When orders fill, repost at % reload with price from repost base minus cents off. Alerts when max shares hit.</p>
+
+          <div class="kalshi-env-row">
+            <label><span>Environment</span></label>
+            <select id="mm-env">
+              <option value="demo">DEMO</option>
+              <option value="prod">PROD</option>
+            </select>
+          </div>
+
+          <div class="kalshi-data-section">
+            <h4>Event ticker – load stakes</h4>
+            <p class="meta small">Enter an Event ticker (e.g. KXMAINE94-26) to load all stakes for that event.</p>
+            <div class="kalshi-markets-toolbar">
+              <input type="text" id="mm-event-ticker" placeholder="Event ticker (e.g. KXMAINE94-26)" />
+              <select id="mm-markets-status" class="kalshi-status-input">
+                <option value="">Any</option>
+                <option value="open" selected>Open</option>
+                <option value="closed">Closed</option>
+                <option value="settled">Settled</option>
+              </select>
+              <button type="button" id="btn-mm-load-stakes">Load stakes</button>
+            </div>
+            <div id="mm-stakes-container" class="mm-stakes-container">
+              <button type="button" id="btn-mm-toggle-stakes" class="mm-toggle-stakes hidden" aria-expanded="false">▼ Show all stakes</button>
+              <div id="mm-stakes-list" class="mm-stakes-list"></div>
+            </div>
+          </div>
+
+          <div class="kalshi-data-section">
+            <h4>Global settings</h4>
+            <div class="mm-global-row">
+              <label><span>Check interval (sec)</span><input type="number" id="mm-check-interval" min="5" value="30" /></label>
+              <label><span>Alert webhook URL</span><input type="text" id="mm-alert-webhook" placeholder="Optional – POST when max shares hit" /></label>
+            </div>
+          </div>
+
+          <div class="kalshi-data-section">
+            <h4>Active strategies</h4>
+            <div id="mm-strategies-list" class="mm-strategies-list">—</div>
+            <div class="actions"><button type="button" id="btn-mm-refresh-strategies">Refresh</button></div>
+          </div>
+
+          <div class="kalshi-data-section">
+            <h4>Order book</h4>
+            <p class="meta small">Monitor order book for a market ticker.</p>
+            <div class="kalshi-markets-toolbar">
+              <input type="text" id="mm-orderbook-ticker" placeholder="Market ticker (e.g. KXBTC-25JAN01-T50000)" />
+              <button type="button" id="btn-mm-load-orderbook">Load</button>
+            </div>
+            <div id="mm-orderbook-display" class="mm-orderbook-display">—</div>
+          </div>
+
+          <div class="kalshi-data-section">
+            <h4>Script generation</h4>
+            <p class="meta small">Generate a strategy script from the per-stake config above. Market mean rounds down (48.5→48¢). For VPS: save script and/or config.</p>
+            <button type="button" id="btn-mm-generate-strategy-script">Generate strategy script</button>
+            <button type="button" id="btn-mm-save-config" class="secondary">Save config for VPS</button>
+            <button type="button" id="btn-mm-generate-script" class="secondary">Generate barebones script</button>
+          </div>
         </div>
       </section>
     </div>

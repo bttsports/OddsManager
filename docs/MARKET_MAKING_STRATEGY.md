@@ -104,10 +104,15 @@ State (per strategy):
 
 ## 7. Desktop UI: Market Making sub-tab
 
-- **Strategy list** from bot API or config.
-- **Add/Edit form:** Markets, sides, order size, refill mode, stop limits, interval.
-- **Start/Stop/Status** per strategy.
-- **Live status:** Fills, totals, active orders.
+- **Event ticker browse:** Load all stakes for an event; expandable dropdown shows each stake.
+- **Per-stake form:** For each stake, optionally configure:
+  - **Shares, Side (Yes/No/Both), Yes (¢), No (¢)** – like the Place order form. Leave blank to skip.
+  - **% reload** – when original shares are fully filled, repost this % of original (e.g. 75% of 1000 = 750).
+  - **Repost price base:** `previous_fill` | `market_mean` (round down, e.g. 48.5→48) | `market_best_offer`.
+  - **Cents off** – subtract from repost base to get new price.
+  - **Max shares** – cap per stake; if repost would exceed total filled, skip repost and send alert.
+- **Generate strategy script** – produces Python with embedded config; includes `send_alert()` and stub for order placement.
+- **Alert webhook URL** – optional; bot POSTs `{"ticker","reason"}` when max shares hit. App can run a local listener to pick up alerts.
 
 ---
 
@@ -140,3 +145,15 @@ Reuse `betting_outs/kalshi/` client and existing Kalshi API integration.
 1. **Phase 1:** Bot runs locally, reads config from file, implements refill + stops. No desktop integration.
 2. **Phase 2:** REST API for config and control; desktop Market Making tab to configure and start/stop.
 3. **Phase 3:** Deploy bot to VPS for persistence; add monitoring/alerting.
+
+---
+
+## 11. Per-stake strategy – possible extensions
+
+Things you might add as you iterate:
+
+- **Cents off direction** – currently always subtract. You might want “add” for the opposite side (e.g. improve No by going higher).
+- **Price bounds** – min/max cents (1–99) to avoid bad reposts.
+- **Order expiration** – GTC vs. “fill by time” (e.g. expire at event close).
+- **Cooldown after fast fill** – if filled “at once”, pause before reposting (historically-aware behavior).
+- **Alert delivery** – besides webhook: in-app notification, email, or SMS.

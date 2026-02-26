@@ -253,6 +253,10 @@ class KalshiHttpClient(KalshiBaseClient):
         params = {k: v for k, v in params.items() if v is not None}
         return self.get(self.portfolio_url + '/positions', params=params)
 
+    def get_orderbook(self, ticker: str) -> Dict[str, Any]:
+        """Get order book for a market. Returns {orderbook: {yes: [[price, qty], ...], no: [...]}}."""
+        return self.get(self.markets_url + '/' + ticker + '/orderbook')
+
     def create_order(
         self,
         ticker: str,

@@ -77,8 +77,24 @@ const kalshiMarketsSort = document.getElementById("kalshi-markets-sort");
 const btnKalshiLoadMarkets = document.getElementById("btn-kalshi-load-markets");
 const kalshiMarketsListEl = document.getElementById("kalshi-markets-list");
 const kalshiMarketsRequestUrlEl = document.getElementById("kalshi-markets-request-url");
+const kalshiSubNav = document.getElementById("kalshi-sub-nav");
+const mmEventTicker = document.getElementById("mm-event-ticker");
+const mmMarketsStatus = document.getElementById("mm-markets-status");
+const btnMmLoadStakes = document.getElementById("btn-mm-load-stakes");
+const mmStakesContainer = document.getElementById("mm-stakes-container");
+const btnMmToggleStakes = document.getElementById("btn-mm-toggle-stakes");
+const mmStakesListEl = document.getElementById("mm-stakes-list");
+const mmStrategiesListEl = document.getElementById("mm-strategies-list");
+const btnMmRefreshStrategies = document.getElementById("btn-mm-refresh-strategies");
+const mmOrderbookTicker = document.getElementById("mm-orderbook-ticker");
+const btnMmLoadOrderbook = document.getElementById("btn-mm-load-orderbook");
+const mmOrderbookDisplay = document.getElementById("mm-orderbook-display");
+const btnMmGenerateScript = document.getElementById("btn-mm-generate-script");
+const btnMmGenerateStrategyScript = document.getElementById("btn-mm-generate-strategy-script");
+const btnMmSaveConfig = document.getElementById("btn-mm-save-config");
 
 let kalshiBatchTickers = [];
+let mmStakes = [];
 
 function showToast(message, type = "success") {
   toastEl.textContent = message;
@@ -341,7 +357,10 @@ document.querySelectorAll(".tab").forEach((btn) => {
     panelMonitors.classList.toggle("hidden", tab !== "monitors");
     panelNotifications.classList.toggle("hidden", tab !== "notifications");
     if (panelKalshi) panelKalshi.classList.toggle("hidden", tab !== "kalshi");
-    if (tab === "kalshi") refreshKalshiStatus();
+    if (tab === "kalshi") {
+      refreshKalshiStatus();
+      showKalshiSection("trading");
+    }
     if (tab === "monitors") loadTablesDropdown();
     if (tab === "notifications") {
       showNotificationsHome();
@@ -689,6 +708,28 @@ startAlertsPolling();
 // --- Kalshi ---
 function kalshiEnv() {
   return (kalshiEnvSelect && kalshiEnvSelect.value) || "demo";
+}
+
+function mmEnv() {
+  return (document.getElementById("mm-env") && document.getElementById("mm-env").value) || "demo";
+}
+
+function showKalshiSection(section) {
+  document.querySelectorAll(".kalshi-section-content").forEach((el) => el.classList.add("hidden"));
+  const active = document.getElementById("kalshi-section-" + section);
+  if (active) active.classList.remove("hidden");
+  if (kalshiSubNav) {
+    kalshiSubNav.querySelectorAll(".sub-tab").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.kalshiSection === section);
+    });
+  }
+  if (section === "market-making" && typeof loadMmStrategies === "function") loadMmStrategies();
+}
+
+if (kalshiSubNav) {
+  kalshiSubNav.querySelectorAll(".sub-tab").forEach((btn) => {
+    btn.addEventListener("click", () => showKalshiSection(btn.dataset.kalshiSection || "trading"));
+  });
 }
 
 async function refreshKalshiStatus() {
@@ -1126,6 +1167,280 @@ if (btnKalshiLoadMarkets) {
       const msg = (e && (e.message || e.toString())) || "Request failed";
       if (kalshiMarketsRequestUrlEl) kalshiMarketsRequestUrlEl.textContent = "";
       if (kalshiMarketsListEl) kalshiMarketsListEl.innerHTML = "<p class=\"empty-state\">Error: " + escapeHtml(msg) + ". Is the Kalshi API server running (Start Kalshi API above)?</p>";
+    }
+  });
+}
+
+// --- Market Making ---
+function renderMmStakeRow(m) {
+  const ticker = m.ticker || "?";
+  const title = (m.title || ticker).length > 55 ? (m.title || ticker).substring(0, 55) + "…" : (m.title || ticker);
+  return `<div class="mm-stake-row" data-ticker="${escapeAttr(ticker)}">
+    <div class="mm-stake-header">
+      <span class="mm-stake-ticker">${escapeHtml(ticker)}</span>
+      <span class="mm-stake-title" title="${escapeAttr(m.title || "")}">${escapeHtml(title)}</span>
+      <span class="mm-stake-expand">▼</span>
+    </div>
+    <div class="mm-stake-form hidden">
+      <label><span>Shares</span><input type="number" data-field="shares" min="0" placeholder="blank = skip" /></label>
+      <label><span>Side</span><select data-field="side"><option value="yes">Yes</option><option value="no">No</option><option value="both">Both</option></select></label>
+      <label><span>Yes (¢)</span><input type="number" data-field="yes_price" min="1" max="99" placeholder="1–99" /></label>
+      <label><span>No (¢)</span><input type="number" data-field="no_price" min="1" max="99" placeholder="1–99" /></label>
+      <label><span>% reload</span><input type="number" data-field="pct_reload" min="0" max="100" placeholder="e.g. 75" /></label>
+      <label><span>Repost price base</span><select data-field="repost_base"><option value="previous_fill">Previous fill</option><option value="market_mean">Market mean</option><option value="market_best_offer">Market best offer</option></select></label>
+      <label><span>Cents off</span><input type="number" data-field="cents_off" min="0" value="0" placeholder="0" /></label>
+      <label><span>Max shares</span><input type="number" data-field="max_shares" min="0" placeholder="Optional" /></label>
+    </div>
+  </div>`;
+}
+
+if (btnMmLoadStakes && mmEventTicker) {
+  btnMmLoadStakes.addEventListener("click", async () => {
+    const eventTicker = (mmEventTicker && mmEventTicker.value.trim()) || null;
+    if (!eventTicker) {
+      showToast("Enter an Event ticker.", "error");
+      return;
+    }
+    const statusRaw = mmMarketsStatus ? mmMarketsStatus.value : "";
+    const status = statusRaw.trim() || undefined;
+    const env = mmEnv();
+    if (!mmStakesListEl) return;
+    try {
+      const dashCount = eventTicker ? (eventTicker.match(/-/g) || []).length : 0;
+      const eventTickerForApi = dashCount >= 2 ? eventTicker.replace(/-[^-]*$/, "") : eventTicker;
+      const payload = {
+        env,
+        limit: 200,
+        status: status || null,
+        event_ticker: eventTickerForApi,
+      };
+      const data = await invoke("kalshi_markets", { p: payload });
+      let markets = (data && data.markets) || (data && data.data && data.data.markets) || [];
+      const q = eventTicker.toLowerCase();
+      markets = markets.filter((m) => {
+        const et = (m.event_ticker || "").toLowerCase();
+        const tk = (m.ticker || "").toLowerCase();
+        return et === q || tk === q || et.startsWith(q) || tk.startsWith(q);
+      });
+      mmStakes = markets;
+      if (markets.length === 0) {
+        mmStakesListEl.innerHTML = "<p class=\"empty-state\">No stakes found for this event.</p>";
+        if (btnMmToggleStakes) btnMmToggleStakes.classList.add("hidden");
+      } else {
+        mmStakesListEl.innerHTML = markets.map(renderMmStakeRow).join("");
+        if (btnMmToggleStakes) {
+          btnMmToggleStakes.classList.remove("hidden");
+          btnMmToggleStakes.textContent = "▼ Show all stakes (" + markets.length + ")";
+          btnMmToggleStakes.setAttribute("aria-expanded", "true");
+          mmStakesListEl.classList.remove("hidden");
+        }
+        mmStakesListEl.querySelectorAll(".mm-stake-header").forEach((hdr) => {
+          hdr.addEventListener("click", () => {
+            const row = hdr.closest(".mm-stake-row");
+            const form = row && row.querySelector(".mm-stake-form");
+            const expand = row && row.querySelector(".mm-stake-expand");
+            if (form && expand) {
+              form.classList.toggle("hidden");
+              expand.textContent = form.classList.contains("hidden") ? "▼" : "▲";
+            }
+          });
+        });
+      }
+    } catch (e) {
+      mmStakesListEl.innerHTML = "<p class=\"empty-state\">Error: " + escapeHtml(String(e)) + ". Is the Kalshi API running?</p>";
+      if (btnMmToggleStakes) btnMmToggleStakes.classList.add("hidden");
+    }
+  });
+}
+
+if (btnMmToggleStakes) {
+  btnMmToggleStakes.addEventListener("click", () => {
+    const expanded = btnMmToggleStakes.getAttribute("aria-expanded") === "true";
+    btnMmToggleStakes.setAttribute("aria-expanded", expanded ? "false" : "true");
+    mmStakesListEl.classList.toggle("hidden", expanded);
+    btnMmToggleStakes.textContent = expanded
+      ? "▼ Show all stakes" + (mmStakes.length ? " (" + mmStakes.length + ")" : "")
+      : "▲ Hide stakes";
+  });
+}
+
+async function loadMmStrategies() {
+  if (!mmStrategiesListEl) return;
+  try {
+    const data = await invoke("kalshi_market_making_strategies", { env: mmEnv() });
+    const strategies = (data && data.strategies) || [];
+    if (strategies.length === 0) {
+      mmStrategiesListEl.innerHTML = "<p class=\"empty-state\">No active strategies. Start one above. (Bot engine not yet implemented.)</p>";
+    } else {
+      mmStrategiesListEl.innerHTML = strategies.map((s) => {
+        const id = s.id || "?";
+        const status = s.status || "unknown";
+        return `<div class="strategy-row">
+          <span>${escapeHtml(id)}</span>
+          <span class="status-pill status-${status === "running" ? "on" : "off"}">${escapeHtml(status)}</span>
+          <button type="button" class="secondary mm-restart-btn" data-id="${escapeAttr(id)}">Restart</button>
+        </div>`;
+      }).join("");
+      mmStrategiesListEl.querySelectorAll(".mm-restart-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await invoke("kalshi_market_making_restart", { env: mmEnv(), strategyId: btn.dataset.id });
+            showToast("Restart requested.");
+            loadMmStrategies();
+          } catch (err) {
+            showToast((err && err.toString()) || "Restart failed", "error");
+          }
+        });
+      });
+    }
+  } catch (err) {
+    mmStrategiesListEl.innerHTML = "<p class=\"empty-state\">Error: " + escapeHtml(String(err)) + "</p>";
+  }
+}
+
+if (btnMmRefreshStrategies) {
+  btnMmRefreshStrategies.addEventListener("click", () => loadMmStrategies());
+}
+
+if (btnMmLoadOrderbook && mmOrderbookTicker && mmOrderbookDisplay) {
+  btnMmLoadOrderbook.addEventListener("click", async () => {
+    const ticker = (mmOrderbookTicker && mmOrderbookTicker.value.trim()) || "";
+    if (!ticker) {
+      showToast("Enter a market ticker.", "error");
+      return;
+    }
+    try {
+      const data = await invoke("kalshi_orderbook", { env: mmEnv(), ticker });
+      mmOrderbookDisplay.innerHTML = "<pre>" + escapeHtml(JSON.stringify(data, null, 2)) + "</pre>";
+    } catch (err) {
+      mmOrderbookDisplay.innerHTML = "<p class=\"empty-state\">Error: " + escapeHtml(String(err)) + "</p>";
+    }
+  });
+}
+
+function collectMmStakeConfig() {
+  const stakes = [];
+  if (!mmStakesListEl) return stakes;
+  mmStakesListEl.querySelectorAll(".mm-stake-row").forEach((row) => {
+    const ticker = row.dataset.ticker;
+    const m = mmStakes.find((s) => (s.ticker || "") === ticker);
+    const shares = parseInt(row.querySelector("[data-field=shares]")?.value || "0", 10);
+    if (!ticker || !shares) return;
+    const side = row.querySelector("[data-field=side]")?.value || "yes";
+    const yesPrice = row.querySelector("[data-field=yes_price]")?.value?.trim();
+    const noPrice = row.querySelector("[data-field=no_price]")?.value?.trim();
+    const pctReload = parseInt(row.querySelector("[data-field=pct_reload]")?.value || "100", 10) || 100;
+    const repostBase = row.querySelector("[data-field=repost_base]")?.value || "previous_fill";
+    const centsOff = parseInt(row.querySelector("[data-field=cents_off]")?.value || "0", 10) || 0;
+    const maxShares = row.querySelector("[data-field=max_shares]")?.value?.trim();
+    stakes.push({
+      ticker,
+      title: m && m.title ? m.title : ticker,
+      shares,
+      side,
+      yes_price: yesPrice ? parseInt(yesPrice, 10) : null,
+      no_price: noPrice ? parseInt(noPrice, 10) : null,
+      pct_reload: Math.min(100, Math.max(0, pctReload)),
+      repost_base: repostBase,
+      cents_off: centsOff,
+      max_shares: maxShares ? parseInt(maxShares, 10) : null,
+    });
+  });
+  return stakes;
+}
+
+if (btnMmGenerateStrategyScript) {
+  btnMmGenerateStrategyScript.addEventListener("click", async () => {
+    const eventTicker = (mmEventTicker && mmEventTicker.value.trim()) || "";
+    const stakes = collectMmStakeConfig();
+    if (stakes.length === 0) {
+      showToast("Load stakes and fill in at least one stake (shares required).", "error");
+      return;
+    }
+    const checkInterval = parseInt(document.getElementById("mm-check-interval")?.value || "30", 10) || 30;
+    const alertWebhook = (document.getElementById("mm-alert-webhook")?.value || "").trim() || null;
+    try {
+      const path = await invoke("save_mm_strategy_script", {
+        config: {
+          event_ticker: eventTicker,
+          env: mmEnv(),
+          check_interval_sec: checkInterval,
+          alert_webhook_url: alertWebhook,
+          stakes,
+        },
+      });
+      showToast("Strategy script saved to " + path);
+    } catch (err) {
+      const msg = (err && err.toString()) || "Generate failed";
+      if (msg.includes("cancelled") || msg.includes("Save cancelled")) {
+        showToast("Save cancelled.");
+      } else {
+        try {
+          const script = await invoke("generate_mm_strategy_script", {
+            config: {
+              event_ticker: eventTicker,
+              env: mmEnv(),
+              check_interval_sec: checkInterval,
+              alert_webhook_url: alertWebhook,
+              stakes,
+            },
+          });
+          await navigator.clipboard.writeText(script);
+          showToast("Script copied to clipboard (save cancelled or failed).");
+        } catch (e2) {
+          showToast(msg, "error");
+        }
+      }
+    }
+  });
+}
+
+if (btnMmSaveConfig) {
+  btnMmSaveConfig.addEventListener("click", async () => {
+    const eventTicker = (mmEventTicker && mmEventTicker.value.trim()) || "";
+    const stakes = collectMmStakeConfig();
+    if (stakes.length === 0) {
+      showToast("Load stakes and fill in at least one stake.", "error");
+      return;
+    }
+    const checkInterval = parseInt(document.getElementById("mm-check-interval")?.value || "30", 10) || 30;
+    const alertWebhook = (document.getElementById("mm-alert-webhook")?.value || "").trim() || null;
+    try {
+      const path = await invoke("save_mm_config", {
+        config: {
+          event_ticker: eventTicker,
+          env: mmEnv(),
+          check_interval_sec: checkInterval,
+          alert_webhook_url: alertWebhook,
+          stakes,
+        },
+      });
+      showToast("Config saved. Copy to market_making/config.json on VPS.");
+    } catch (err) {
+      if (!String(err).includes("cancelled")) showToast(String(err), "error");
+    }
+  });
+}
+
+if (btnMmGenerateScript) {
+  btnMmGenerateScript.addEventListener("click", async () => {
+    const tickers = mmStakes.length > 0 ? mmStakes.map((m) => m.ticker).filter(Boolean) : [];
+    try {
+      const path = await invoke("save_market_maker_script", { tickers });
+      showToast("Script saved to " + path);
+    } catch (err) {
+      const msg = (err && err.toString()) || "Generate failed";
+      if (msg.includes("cancelled") || msg.includes("Save cancelled")) {
+        showToast("Save cancelled.");
+      } else {
+        try {
+          const script = await invoke("generate_market_maker_script", { tickers });
+          await navigator.clipboard.writeText(script);
+          showToast("Script copied to clipboard (save cancelled or failed).");
+        } catch (e2) {
+          showToast(msg, "error");
+        }
+      }
     }
   });
 }
