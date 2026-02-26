@@ -2,5 +2,5 @@
   "identifier": "main-capability",
   "description": "Main window: app commands and open URL in browser",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default","notification:default"]
 }

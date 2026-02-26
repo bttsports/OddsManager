@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         X List Monitor (DB)
+// @name         X List Monitor: MLB News
 // @namespace    http://tampermonkey.net/
-// @version      2025.02.14
+// @version      2026.02.17
 // @description  X list keyword monitor – sends matching tweets to local API (no desktop notifications)
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -11,32 +11,32 @@
 // @run-at       document-end
 // ==/UserScript==
 
-// README: Run the tweets API so the script can save tweets: python news/tweets_api.py (http://localhost:8765)
-// TESTING: Reset seen cache: localStorage.removeItem("X_MONITOR_SEEN_CACHE_52021139")
-//          Reset catch-up state: localStorage.removeItem("X_MONITOR_STATE_52021139")
-
 (function() {
     'use strict';
 
     const API_URL = "http://localhost:8765";
-    const KEYWORDS = ['is in','injured','injury','is out','is in','active','questionable','uncertain','play',
-                      'coin', 'inactive', 'will play', 'will start', 'rule out', 'ruled out', 'ruled in',
-                     'rule in'];
-    const LIST_ID = "52021139";
+    const KEYWORDS = ["injured", "will start", "is out", "will not play", "not start",
+        "will play", "is in", "coming out", "will replace", "contract", "IL", "injury list", "injured list", "rehab", "injury", "starting lineup"];
+    const LIST_ID = "2022369077642015042";
     const REFRESH_MINUTES = 1;
     const CATCH_UP_THRESHOLD_MINUTES = 5;
     const STORAGE_KEY = "X_MONITOR_SEEN_CACHE_" + LIST_ID;
     const STATE_KEY = "X_MONITOR_STATE_" + LIST_ID;
     const MAX_CACHE_SIZE = 200;
+    const DEBUG = true;
     const SCROLL_STEP_PX = 800;
     const SCROLL_WAIT_MS = 1800;
     const MAX_SCROLL_STEPS = 50;
     const INITIAL_WAIT_BEFORE_SCROLL_MS = 2000;
 
+    function debugLog(msg, data) {
+        if (DEBUG) console.log("[Monitor]", msg, data !== undefined ? data : "");
+    }
+
     function getVisibleTweetIds() {
         const articles = document.querySelectorAll('article[data-testid="tweet"]');
         const ids = new Set();
-        articles.forEach((a) => {
+        articles.forEach(function(a) {
             const id = getTweetIdFromArticle(a);
             if (id) ids.add(id);
         });
@@ -44,30 +44,44 @@
     }
 
     function scrollUntilLastSeen() {
-        return new Promise((resolve) => {
+        return new Promise(function(resolve) {
             const state = getState();
             const lastId = state.lastTweetId;
+
             if (!lastId) {
-                let count = 0;
+                debugLog("No lastTweetId; scrolling to load initial batch");
+                var count = 0;
                 function doScroll() {
                     window.scrollBy(0, SCROLL_STEP_PX);
                     count++;
-                    if (count >= 6) resolve();
-                    else setTimeout(doScroll, SCROLL_WAIT_MS);
+                    if (count >= 6) {
+                        debugLog("Initial scroll done (no lastTweetId)");
+                        resolve();
+                        return;
+                    }
+                    setTimeout(doScroll, SCROLL_WAIT_MS);
                 }
                 setTimeout(doScroll, SCROLL_WAIT_MS);
                 return;
             }
-            let scrollCount = 0;
-            let lastScrollHeight = 0;
+
+            var scrollCount = 0;
+            var lastScrollHeight = 0;
             function step() {
-                const ids = getVisibleTweetIds();
-                if (ids.has(lastId) || scrollCount >= MAX_SCROLL_STEPS) {
+                var ids = getVisibleTweetIds();
+                if (ids.has(lastId)) {
+                    debugLog("Found last seen tweet, stopping scroll", lastId);
                     resolve();
                     return;
                 }
-                const sh = document.documentElement.scrollHeight;
+                if (scrollCount >= MAX_SCROLL_STEPS) {
+                    debugLog("Max scrolls reached", MAX_SCROLL_STEPS);
+                    resolve();
+                    return;
+                }
+                var sh = document.documentElement.scrollHeight;
                 if (sh === lastScrollHeight && scrollCount > 4) {
+                    debugLog("Scroll height unchanged, at bottom");
                     resolve();
                     return;
                 }
@@ -102,10 +116,11 @@
     }
 
     function saveState(lastRunTime, lastTweetId, lastTweetTime) {
+        const s = getState();
         localStorage.setItem(STATE_KEY, JSON.stringify({
-            lastRunTime: lastRunTime || getState().lastRunTime,
-            lastTweetId: lastTweetId !== undefined ? lastTweetId : getState().lastTweetId,
-            lastTweetTime: lastTweetTime !== undefined ? lastTweetTime : getState().lastTweetTime
+            lastRunTime: lastRunTime !== undefined ? lastRunTime : s.lastRunTime,
+            lastTweetId: lastTweetId !== undefined ? lastTweetId : s.lastTweetId,
+            lastTweetTime: lastTweetTime !== undefined ? lastTweetTime : s.lastTweetTime
         }));
     }
 
@@ -143,28 +158,7 @@
     }
 
     function sendToApi(tweetId, authorHandle, text, url, postedAt) {
-        GM_xmlhttpRequest({
-            method: "POST",
-            url: API_URL + "/api/tweet",
-            headers: { "Content-Type": "application/json" },
-            data: JSON.stringify({
-                tweet_id: tweetId,
-                author_handle: authorHandle,
-                text: text,
-                url: url || null,
-                posted_at: postedAt || null
-            }),
-            onload: function(res) {
-                if (res.status >= 200 && res.status < 300) {
-                    console.log("%c📤 Sent to DB: " + authorHandle, "color: #00ba7c;");
-                } else {
-                    console.warn("API error " + res.status, res.responseText);
-                }
-            },
-            onerror: function() {
-                console.warn("API request failed (is python news/tweets_api.py running?)");
-            }
-        });
+        GM_xmlhttpRequest({ method: "POST", url: API_URL + "/api/tweet", headers: { "Content-Type": "application/json" }, data: JSON.stringify({ tweet_id: tweetId, author_handle: authorHandle, text: text, url: url || null, posted_at: postedAt || null }), onload: function(res) { if (res.status >= 200 && res.status < 300) console.log("%c📤 Sent to DB: " + authorHandle, "color: #00ba7c;"); else console.warn("API " + res.status); }, onerror: function() { console.warn("API failed (run python news/tweets_api.py)"); } });
     }
 
     function processMatch(article, text, tweetUrl, tweetId, tweetTime) {
@@ -175,6 +169,7 @@
         const author = getAuthorFromArticle(article);
         const id = tweetId || getTweetIdFromArticle(article);
         const time = tweetTime || getTweetTimeFromArticle(article);
+        debugLog("Sending to API", { author, id, textPre: text.substring(0, 50) + "..." });
         sendToApi(id || String(Date.now()), author, text, tweetUrl, time);
         saveToCache(fingerprint);
         saveState(Date.now(), id, time);
@@ -182,21 +177,19 @@
 
     function scan() {
         const articles = document.querySelectorAll('article[data-testid="tweet"]');
+        debugLog("scan: articles found", articles.length);
         articles.forEach(article => {
             const textEl = article.querySelector('[data-testid="tweetText"]');
             if (!textEl) return;
             const text = textEl.innerText;
             const linkEl = article.querySelector('time')?.closest('a');
             const tweetUrl = linkEl ? linkEl.href : null;
-            const tweetId = getTweetIdFromArticle(article);
-            const tweetTime = getTweetTimeFromArticle(article);
-            processMatch(article, text, tweetUrl, tweetId, tweetTime);
+            processMatch(article, text, tweetUrl, getTweetIdFromArticle(article), getTweetTimeFromArticle(article));
         });
         saveState(Date.now());
     }
 
     function catchUpScan() {
-        console.log("🔄 Catch-up: scraping tweets until last seen...");
         const state = getState();
         const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
         const items = [];
@@ -206,16 +199,9 @@
             const text = textEl.innerText;
             const linkEl = article.querySelector('time')?.closest('a');
             const tweetUrl = linkEl ? linkEl.href : null;
-            const tweetId = getTweetIdFromArticle(article);
-            const tweetTime = getTweetTimeFromArticle(article);
-            items.push({ article, text, tweetUrl, tweetId, tweetTime });
+            items.push({ article, text, tweetUrl, tweetId: getTweetIdFromArticle(article), tweetTime: getTweetTimeFromArticle(article) });
         });
-        const byTime = (a, b) => {
-            const tA = a.tweetTime || '';
-            const tB = b.tweetTime || '';
-            return tB.localeCompare(tA);
-        };
-        items.sort(byTime);
+        items.sort((a, b) => (b.tweetTime || '').localeCompare(a.tweetTime || ''));
         let processed = 0;
         for (const item of items) {
             if (state.lastTweetId && item.tweetId === state.lastTweetId) break;
@@ -224,18 +210,14 @@
             processed++;
         }
         saveState(Date.now());
-        if (processed > 0) console.log("Catch-up: processed " + processed + " tweet(s).");
+        debugLog("catchUpScan done", { articlesFound: articles.length, withText: items.length, processed });
     }
 
     function maybeCatchUpThenScan() {
         const state = getState();
-        const now = Date.now();
-        const gap = (now - state.lastRunTime) / (60 * 1000);
-        if (gap >= CATCH_UP_THRESHOLD_MINUTES) {
-            catchUpScan();
-        } else {
-            scan();
-        }
+        const gap = (Date.now() - state.lastRunTime) / (60 * 1000);
+        if (gap >= CATCH_UP_THRESHOLD_MINUTES) catchUpScan();
+        else scan();
     }
 
     let scanTimer = null;
@@ -255,10 +237,13 @@
         if (!target || !(target instanceof Node)) return false;
         observer.observe(target, { childList: true, subtree: true });
         maybeCatchUpThenScan();
-        setTimeout(() => {
-            scrollUntilLastSeen().then(() => {
+        debugLog("Scheduling scroll-then-catchUp in " + INITIAL_WAIT_BEFORE_SCROLL_MS + "ms");
+        setTimeout(function() {
+            debugLog("Starting scroll until last seen tweet...");
+            scrollUntilLastSeen().then(function() {
+                debugLog("Scroll phase done; running catchUpScan");
                 catchUpScan();
-                setTimeout(() => {
+                setTimeout(function() {
                     console.log("🔄 Refreshing List...");
                     window.location.reload();
                 }, REFRESH_MINUTES * 60 * 1000);

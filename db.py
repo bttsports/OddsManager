@@ -81,6 +81,84 @@ def insert_mlb_tweet(database, tweet_id, author_handle, text, url=None, posted_a
     cursor.close()
 
 
+def insert_mlb_tweet_all(database, tweet_id, author_handle, text, url=None, posted_at=None):
+    """Insert a tweet into news_sources.mlb_tweets_all (scrape-all, no keyword filter).
+    Ignores duplicate tweet_id (INSERT IGNORE).
+    """
+    cursor = database.cursor(buffered=True)
+    cursor.execute(
+        "INSERT IGNORE INTO mlb_tweets_all (tweet_id, author_handle, text, url, posted_at) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (tweet_id, author_handle, text, url, posted_at),
+    )
+    database.commit()
+    cursor.close()
+
+
+def insert_golf_tweet(database, tweet_id, author_handle, text, url=None, posted_at=None):
+    """Insert a tweet into news_sources.golf_tweets. Ignores duplicate tweet_id (INSERT IGNORE)."""
+    cursor = database.cursor(buffered=True)
+    cursor.execute(
+        "INSERT IGNORE INTO golf_tweets (tweet_id, author_handle, text, url, posted_at) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (tweet_id, author_handle, text, url, posted_at),
+    )
+    database.commit()
+    cursor.close()
+
+
+def list_tables(database):
+    """Return list of table names in the current database (e.g. news_sources)."""
+    cursor = database.cursor(buffered=True)
+    cursor.execute("SHOW TABLES")
+    rows = cursor.fetchall()
+    cursor.close()
+    return [row[0] for row in rows]
+
+
+def insert_tweet_into_table(database, table_name, tweet_id, author_handle, text, url=None, posted_at=None):
+    """Insert a tweet into the given table. Table must exist and have mlb_tweets-like columns.
+    Ignores duplicate tweet_id (INSERT IGNORE). table_name must be in allowed list (e.g. from list_tables).
+    """
+    if not table_name or not all(c.isalnum() or c == "_" for c in table_name):
+        raise ValueError("Invalid table name")
+    cursor = database.cursor(buffered=True)
+    cursor.execute(
+        "INSERT IGNORE INTO `{}` (tweet_id, author_handle, text, url, posted_at) "
+        "VALUES (%s, %s, %s, %s, %s)".format(table_name),
+        (tweet_id, author_handle, text, url, posted_at),
+    )
+    database.commit()
+    cursor.close()
+
+
+def create_tweets_table(database, table_name):
+    """Create a table in news_sources with the same schema as mlb_tweets.
+    table_name must contain only safe characters (caller should validate).
+    """
+    # Table name is validated by API; use parameterized identifier not supported by mysql.connector, so we restrict to [a-z0-9_]
+    if not table_name or not all(c.isalnum() or c == "_" for c in table_name):
+        raise ValueError("Invalid table name")
+    sql = (
+        "CREATE TABLE IF NOT EXISTS `{0}` ("
+        "  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,"
+        "  tweet_id      VARCHAR(32)   NOT NULL COMMENT 'Twitter tweet ID',"
+        "  author_handle VARCHAR(255)  NOT NULL,"
+        "  text          TEXT          NOT NULL,"
+        "  url           VARCHAR(512)  DEFAULT NULL,"
+        "  posted_at     DATETIME      DEFAULT NULL,"
+        "  inserted_at   DATETIME      DEFAULT CURRENT_TIMESTAMP,"
+        "  UNIQUE KEY uq_tweet_id (tweet_id),"
+        "  KEY idx_posted_at (posted_at),"
+        "  KEY idx_author (author_handle)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    ).format(table_name)
+    cursor = database.cursor(buffered=True)
+    cursor.execute(sql)
+    database.commit()
+    cursor.close()
+
+
 # TODO test
 def update_data(database, table, values, columns, where=None):
     """Builds and executes an update query where values contains all

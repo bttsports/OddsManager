@@ -10,3 +10,4 @@ beautifulsoup4
 playwright
 flask
 flask-cors
+python-dotenv

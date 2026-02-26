@@ -1,0 +1,24 @@
+{
+  "id": "da5cbb66-8ac4-4c4c-aced-dec502cc3a07",
+  "name": "Golf Alerts",
+  "list_url": "https://x.com/i/lists/2024524257716212189",
+  "keywords": [
+    "injured",
+    "injury",
+    "is out",
+    "is in",
+    "replaced",
+    "withdrawn",
+    "withdraw",
+    "withdrew",
+    "disqualified",
+    "DQ",
+    "tee time",
+    "tee times",
+    "resume",
+    "delay",
+    "postponed"
+  ],
+  "refresh_minutes": 5,
+  "feed": "golf_tweets"
+}

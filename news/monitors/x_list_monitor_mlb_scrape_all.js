@@ -1,32 +1,28 @@
 // ==UserScript==
-// @name         X List Monitor (DB)
+// @name         X List Monitor: MLB – Scrape All Tweets
 // @namespace    http://tampermonkey.net/
-// @version      2025.02.14
-// @description  X list keyword monitor – sends matching tweets to local API (no desktop notifications)
-// @match        https://x.com/*
-// @match        https://twitter.com/*
+// @version      2026.02.19
+// @description  Same list as MLB monitor; scrapes all tweets (no keyword filter). For later player/team matching.
+// @match        https://x.com/i/lists/2022369077642015042
+// @match        https://twitter.com/i/lists/2022369077642015042
 // @grant        GM_xmlhttpRequest
 // @connect      localhost
 // @connect      127.0.0.1
 // @run-at       document-end
 // ==/UserScript==
 
-// README: Run the tweets API so the script can save tweets: python news/tweets_api.py (http://localhost:8765)
-// TESTING: Reset seen cache: localStorage.removeItem("X_MONITOR_SEEN_CACHE_52021139")
-//          Reset catch-up state: localStorage.removeItem("X_MONITOR_STATE_52021139")
-
 (function() {
     'use strict';
 
     const API_URL = "http://localhost:8765";
-    const KEYWORDS = ['is in','injured','injury','is out','is in','active','questionable','uncertain','play',
-                      'coin', 'inactive', 'will play', 'will start', 'rule out', 'ruled out', 'ruled in',
-                     'rule in'];
-    const LIST_ID = "52021139";
+    // POST to this URL inserts into news_sources.mlb_tweets_all (same as GET /api/tweets/all).
+    const TWEET_POST_URL = "http://localhost:8765/api/tweet/all";
+    // Same list as x_list_monitor_mlb.js – no keywords; we scrape everything for later filtering
+    const LIST_ID = "2022369077642015042";
     const REFRESH_MINUTES = 1;
     const CATCH_UP_THRESHOLD_MINUTES = 5;
-    const STORAGE_KEY = "X_MONITOR_SEEN_CACHE_" + LIST_ID;
-    const STATE_KEY = "X_MONITOR_STATE_" + LIST_ID;
+    const STORAGE_KEY = "X_MONITOR_SEEN_CACHE_" + LIST_ID + "_ScrapeAll";
+    const STATE_KEY = "X_MONITOR_STATE_" + LIST_ID + "_ScrapeAll";
     const MAX_CACHE_SIZE = 200;
     const SCROLL_STEP_PX = 800;
     const SCROLL_WAIT_MS = 1800;
@@ -36,7 +32,7 @@
     function getVisibleTweetIds() {
         const articles = document.querySelectorAll('article[data-testid="tweet"]');
         const ids = new Set();
-        articles.forEach((a) => {
+        articles.forEach(function(a) {
             const id = getTweetIdFromArticle(a);
             if (id) ids.add(id);
         });
@@ -44,11 +40,11 @@
     }
 
     function scrollUntilLastSeen() {
-        return new Promise((resolve) => {
+        return new Promise(function(resolve) {
             const state = getState();
             const lastId = state.lastTweetId;
             if (!lastId) {
-                let count = 0;
+                var count = 0;
                 function doScroll() {
                     window.scrollBy(0, SCROLL_STEP_PX);
                     count++;
@@ -58,15 +54,15 @@
                 setTimeout(doScroll, SCROLL_WAIT_MS);
                 return;
             }
-            let scrollCount = 0;
-            let lastScrollHeight = 0;
+            var scrollCount = 0;
+            var lastScrollHeight = 0;
             function step() {
-                const ids = getVisibleTweetIds();
+                var ids = getVisibleTweetIds();
                 if (ids.has(lastId) || scrollCount >= MAX_SCROLL_STEPS) {
                     resolve();
                     return;
                 }
-                const sh = document.documentElement.scrollHeight;
+                var sh = document.documentElement.scrollHeight;
                 if (sh === lastScrollHeight && scrollCount > 4) {
                     resolve();
                     return;
@@ -80,7 +76,7 @@
         });
     }
 
-    console.log("🚀 Monitor Starting (DB)...");
+    console.log("🚀 MLB List Scrape-All Starting (same list, no keyword filter)...");
 
     function getSeenCache() {
         const data = localStorage.getItem(STORAGE_KEY);
@@ -102,10 +98,11 @@
     }
 
     function saveState(lastRunTime, lastTweetId, lastTweetTime) {
+        const s = getState();
         localStorage.setItem(STATE_KEY, JSON.stringify({
-            lastRunTime: lastRunTime || getState().lastRunTime,
-            lastTweetId: lastTweetId !== undefined ? lastTweetId : getState().lastTweetId,
-            lastTweetTime: lastTweetTime !== undefined ? lastTweetTime : getState().lastTweetTime
+            lastRunTime: lastRunTime !== undefined ? lastRunTime : s.lastRunTime,
+            lastTweetId: lastTweetId !== undefined ? lastTweetId : s.lastTweetId,
+            lastTweetTime: lastTweetTime !== undefined ? lastTweetTime : s.lastTweetTime
         }));
     }
 
@@ -130,22 +127,10 @@
         return "unknown";
     }
 
-    function escapeRegex(s) {
-        return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    function hasWholeWordMatch(text, keywords) {
-        for (const kw of keywords) {
-            const re = new RegExp('\\b' + escapeRegex(kw) + '\\b', 'i');
-            if (re.test(text)) return true;
-        }
-        return false;
-    }
-
     function sendToApi(tweetId, authorHandle, text, url, postedAt) {
         GM_xmlhttpRequest({
             method: "POST",
-            url: API_URL + "/api/tweet",
+            url: TWEET_POST_URL,
             headers: { "Content-Type": "application/json" },
             data: JSON.stringify({
                 tweet_id: tweetId,
@@ -156,22 +141,22 @@
             }),
             onload: function(res) {
                 if (res.status >= 200 && res.status < 300) {
-                    console.log("%c📤 Sent to DB: " + authorHandle, "color: #00ba7c;");
+                    console.log("%c📤 Sent (scrape-all): " + authorHandle, "color: #00ba7c;");
                 } else {
-                    console.warn("API error " + res.status, res.responseText);
+                    console.warn("API " + res.status);
                 }
             },
             onerror: function() {
-                console.warn("API request failed (is python news/tweets_api.py running?)");
+                console.warn("API failed (run python news/tweets_api.py)");
             }
         });
     }
 
-    function processMatch(article, text, tweetUrl, tweetId, tweetTime) {
+    // Process every tweet (no keyword check) – dedupe by cache only
+    function processTweet(article, text, tweetUrl, tweetId, tweetTime) {
         const cache = getSeenCache();
         const fingerprint = text.substring(0, 120);
         if (cache.includes(fingerprint)) return;
-        if (!hasWholeWordMatch(text, KEYWORDS)) return;
         const author = getAuthorFromArticle(article);
         const id = tweetId || getTweetIdFromArticle(article);
         const time = tweetTime || getTweetTimeFromArticle(article);
@@ -188,15 +173,12 @@
             const text = textEl.innerText;
             const linkEl = article.querySelector('time')?.closest('a');
             const tweetUrl = linkEl ? linkEl.href : null;
-            const tweetId = getTweetIdFromArticle(article);
-            const tweetTime = getTweetTimeFromArticle(article);
-            processMatch(article, text, tweetUrl, tweetId, tweetTime);
+            processTweet(article, text, tweetUrl, getTweetIdFromArticle(article), getTweetTimeFromArticle(article));
         });
         saveState(Date.now());
     }
 
     function catchUpScan() {
-        console.log("🔄 Catch-up: scraping tweets until last seen...");
         const state = getState();
         const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
         const items = [];
@@ -206,39 +188,32 @@
             const text = textEl.innerText;
             const linkEl = article.querySelector('time')?.closest('a');
             const tweetUrl = linkEl ? linkEl.href : null;
-            const tweetId = getTweetIdFromArticle(article);
-            const tweetTime = getTweetTimeFromArticle(article);
-            items.push({ article, text, tweetUrl, tweetId, tweetTime });
+            items.push({
+                article,
+                text,
+                tweetUrl,
+                tweetId: getTweetIdFromArticle(article),
+                tweetTime: getTweetTimeFromArticle(article)
+            });
         });
-        const byTime = (a, b) => {
-            const tA = a.tweetTime || '';
-            const tB = b.tweetTime || '';
-            return tB.localeCompare(tA);
-        };
-        items.sort(byTime);
-        let processed = 0;
+        items.sort((a, b) => (b.tweetTime || '').localeCompare(a.tweetTime || ''));
         for (const item of items) {
             if (state.lastTweetId && item.tweetId === state.lastTweetId) break;
             if (state.lastTweetTime && item.tweetTime && item.tweetTime <= state.lastTweetTime) break;
-            processMatch(item.article, item.text, item.tweetUrl, item.tweetId, item.tweetTime);
-            processed++;
+            processTweet(item.article, item.text, item.tweetUrl, item.tweetId, item.tweetTime);
         }
         saveState(Date.now());
-        if (processed > 0) console.log("Catch-up: processed " + processed + " tweet(s).");
-    }
-
-    function maybeCatchUpThenScan() {
-        const state = getState();
-        const now = Date.now();
-        const gap = (now - state.lastRunTime) / (60 * 1000);
-        if (gap >= CATCH_UP_THRESHOLD_MINUTES) {
-            catchUpScan();
-        } else {
-            scan();
-        }
     }
 
     let scanTimer = null;
+
+    function maybeCatchUpThenScan() {
+        const state = getState();
+        const gap = (Date.now() - state.lastRunTime) / (60 * 1000);
+        if (gap >= CATCH_UP_THRESHOLD_MINUTES) catchUpScan();
+        else scan();
+    }
+
     const observer = new MutationObserver(() => {
         if (scanTimer) clearTimeout(scanTimer);
         scanTimer = setTimeout(() => {
@@ -255,10 +230,10 @@
         if (!target || !(target instanceof Node)) return false;
         observer.observe(target, { childList: true, subtree: true });
         maybeCatchUpThenScan();
-        setTimeout(() => {
-            scrollUntilLastSeen().then(() => {
+        setTimeout(function() {
+            scrollUntilLastSeen().then(function() {
                 catchUpScan();
-                setTimeout(() => {
+                setTimeout(function() {
                     console.log("🔄 Refreshing List...");
                     window.location.reload();
                 }, REFRESH_MINUTES * 60 * 1000);
@@ -276,6 +251,6 @@
     }
 
     setInterval(() => {
-        console.log(`Alive - ${new Date().toLocaleTimeString()} - Watching keywords...`);
+        console.log(`Alive - ${new Date().toLocaleTimeString()} - Scraping all tweets (no keywords)...`);
     }, 30000);
 })();

@@ -12,18 +12,47 @@
       <h1>OddsManager</h1>
       <p class="tagline">X list monitors – create scripts and start monitoring</p>
       <nav class="tabs">
-        <button type="button" class="tab active" data-tab="monitors">Monitors</button>
+        <button type="button" class="tab active" data-tab="home">Home</button>
+        <button type="button" class="tab" data-tab="monitors">Monitors</button>
         <button type="button" class="tab" data-tab="notifications">Notifications</button>
+        <button type="button" class="tab" data-tab="kalshi">Kalshi</button>
       </nav>
     </header>
 
-    <div id="panel-monitors" class="tab-panel">
+    <div id="panel-home" class="tab-panel">
+      <section class="server-panel">
+        <h2>Tweets API server</h2>
+        <p class="meta">This powers DB uploads from the Tampermonkey script and the Notifications tab.</p>
+        <div class="server-status-row">
+          <span id="server-status" class="status-pill status-unknown">Server: Unknown</span>
+          <button type="button" id="btn-server-toggle">Start server</button>
+        </div>
+        <p class="meta small">
+          When running, the server listens on <code>http://localhost:8765</code> and provides
+          <code>/api/tweet</code> (POST from Tampermonkey) and <code>/api/tweets</code> (GET for this app).
+        </p>
+      </section>
+    </div>
+
+    <div id="panel-monitors" class="tab-panel hidden">
     <section class="add-monitor">
       <h2>Create a new monitor</h2>
       <form id="form-monitor">
         <label>
           <span>Monitor name</span>
           <input type="text" id="input-name" placeholder="e.g. NBA injury list" required />
+          <small id="table-name-preview" class="table-name-preview"></small>
+        </label>
+        <div class="create-table-row">
+          <button type="button" id="btn-create-db-table" class="secondary">Create DB table</button>
+          <span id="create-table-hint" class="meta small">Creates <code>news_sources.&lt;name&gt;_tweets</code> (same schema as mlb_tweets). API must be running.</span>
+        </div>
+        <label>
+          <span>Send tweets to table</span>
+          <select id="input-feed">
+            <option value="">Loading tables…</option>
+          </select>
+          <small class="meta small">Generated script will POST to this news_sources table. Start the API on Home to see the list.</small>
         </label>
         <label>
           <span>X (Twitter) list URL</span>
@@ -51,12 +80,149 @@
     </section>
     </div>
 
+    <div id="panel-kalshi" class="tab-panel hidden">
+      <section class="kalshi-panel">
+        <h2>Kalshi</h2>
+        <p class="meta">Connect to Kalshi API for balance, orders, and trading. You need: <strong>KALSHI_API_KEY</strong> = your Key ID (from kalshi.com → Account → API keys). Your PEM file <code>tocotoucan.pem</code> in this folder is used automatically; or set <code>KALSHI_PRIVATE_KEY_PATH</code> to its path.</p>
+        <div class="server-status-row">
+          <span id="kalshi-server-status" class="status-pill status-unknown">Checking…</span>
+          <button type="button" id="btn-kalshi-server-toggle">Start Kalshi API</button>
+        </div>
+        <p class="meta small">When running, the Kalshi bridge listens on <code>http://localhost:8766</code>.</p>
+
+        <div class="kalshi-env-row">
+          <label><span>Environment</span></label>
+          <select id="kalshi-env">
+            <option value="demo">DEMO</option>
+            <option value="prod">PROD</option>
+          </select>
+        </div>
+
+        <div class="kalshi-data-section">
+          <h3>Account</h3>
+          <div id="kalshi-balance" class="kalshi-balance meta">—</div>
+          <div id="kalshi-exchange-status" class="kalshi-exchange-status meta">—</div>
+          <div class="actions"><button type="button" id="btn-kalshi-refresh">Refresh</button></div>
+        </div>
+
+        <div class="kalshi-data-section kalshi-data-section--collapsible">
+          <h3 class="kalshi-section-toggle" id="kalshi-orders-toggle" aria-expanded="false">Resting orders</h3>
+          <div id="kalshi-orders-list" class="kalshi-orders-list kalshi-section-body">—</div>
+        </div>
+
+        <div class="kalshi-data-section kalshi-data-section--collapsible">
+          <h3 class="kalshi-section-toggle" id="kalshi-positions-toggle" aria-expanded="false">Positions</h3>
+          <div id="kalshi-positions-list" class="kalshi-positions-list kalshi-section-body">—</div>
+        </div>
+
+        <div class="kalshi-data-section">
+          <h3>Place order</h3>
+          <form id="form-kalshi-order">
+            <label class="kalshi-form-cell-ticker"><span>Market ticker</span><input type="text" id="kalshi-order-ticker" placeholder="e.g. KXBTC-25JAN01-T50000" /></label>
+            <label><span>Sides</span><select id="kalshi-order-sides"><option value="yes">Yes only</option><option value="no">No only</option><option value="both">Both (Yes + No)</option></select></label>
+            <label><span>Count</span><input type="number" id="kalshi-order-count" min="1" value="1" /></label>
+            <label><span>Yes (¢)</span><input type="number" id="kalshi-order-yes-price" min="1" max="99" placeholder="1–99" /></label>
+            <label class="kalshi-no-price-cell"><span>No (¢)</span><input type="number" id="kalshi-order-no-price" min="1" max="99" placeholder="1–99" /></label>
+            <label class="kalshi-form-cell-expiration"><span>Expiration</span><select id="kalshi-order-expiration">
+              <option value="good_till_canceled">Good til cancelled</option>
+              <option value="specific_time">Specific time (use date/time below)</option>
+            </select></label>
+            <label class="kalshi-form-cell-expiration-datetime" id="kalshi-order-expiration-datetime-wrap" style="display: none;"><span>Expire at</span><input type="datetime-local" id="kalshi-order-expiration-datetime" step="1" /></label>
+            <label class="kalshi-form-cell-reciprocal"><input type="checkbox" id="kalshi-order-reciprocal" /> <span>Reciprocal (also place opposite side on the other market)</span></label>
+            <div class="actions"><button type="submit">Place order</button></div>
+          </form>
+          <div class="kalshi-batch-row">
+            <span class="kalshi-batch-label">Batch:</span>
+            <span id="kalshi-batch-list" class="kalshi-batch-list">—</span>
+            <button type="button" id="btn-kalshi-place-batch" class="secondary" disabled>Place all (max 10)</button>
+            <button type="button" id="btn-kalshi-clear-batch" class="secondary">Clear</button>
+          </div>
+        </div>
+
+        <div class="kalshi-data-section">
+          <h3>Browse markets</h3>
+          <p class="meta small">Series (e.g. KXMAINE94), Event (e.g. KXMAINE94-26), or Market (e.g. KXMAINE94-26-SHAR). Use status <strong>Any</strong> for closed/settled markets like Maine 94th HD.</p>
+          <div class="kalshi-markets-toolbar">
+            <input type="text" id="kalshi-event-ticker" placeholder="Series / Event / Market ticker" />
+            <select id="kalshi-markets-status" class="kalshi-status-input" title="Market status filter">
+              <option value="">Any</option>
+              <option value="open" selected>Open</option>
+              <option value="closed">Closed</option>
+              <option value="settled">Settled</option>
+            </select>
+            <select id="kalshi-markets-sort" class="kalshi-status-input" title="Sort markets">
+              <option value="">Default order</option>
+              <option value="alpha">Alphabetical</option>
+              <option value="expiry">Expiry (soonest first)</option>
+            </select>
+            <button type="button" id="btn-kalshi-load-markets">Load strikes</button>
+          </div>
+          <p id="kalshi-markets-request-url" class="kalshi-request-url meta small" aria-live="polite"></p>
+          <div id="kalshi-markets-list" class="kalshi-markets-list">—</div>
+        </div>
+      </section>
+    </div>
+
     <div id="panel-notifications" class="tab-panel hidden">
       <section class="notifications">
-        <h2>Recent tweets (keyword matches)</h2>
-        <p class="meta">From <code>news_sources.mlb_tweets</code>. Run <code>python news/tweets_api.py</code> so the script can save tweets.</p>
-        <div class="actions"><button type="button" id="btn-refresh-tweets">Refresh</button></div>
-        <div id="tweets-list"></div>
+        <nav id="notifications-sub-nav" class="sub-tabs" aria-label="Notification feeds">
+          <button type="button" class="sub-tab" data-feed="mlb">MLB</button>
+          <button type="button" class="sub-tab" data-feed="golf">Golf</button>
+          <button type="button" class="sub-tab" data-feed="nfl">NFL</button>
+          <button type="button" class="sub-tab" data-feed="politics">Politics</button>
+        </nav>
+
+        <div id="feed-mlb" class="feed-content">
+          <div id="mlb-section-view" class="mlb-section">
+            <h2>MLB</h2>
+            <p class="meta">Choose a feed.</p>
+            <div class="mlb-options">
+              <a href="#" id="link-mlb-alerts" class="mlb-option-card">
+                <span class="mlb-option-title">MLB Alerts</span>
+                <span class="mlb-option-desc">Keyword matches from <code>mlb_tweets</code></span>
+              </a>
+              <a href="#" id="link-mlb-search-all" class="mlb-option-card">
+                <span class="mlb-option-title">MLB Search All</span>
+                <span class="mlb-option-desc">All scraped tweets from <code>mlb_tweets_all</code></span>
+              </a>
+            </div>
+          </div>
+          <div id="mlb-alerts-view" class="mlb-feed-view hidden">
+            <p class="nav-back"><a href="#" id="back-from-mlb-alerts">← Back to MLB</a></p>
+            <h2>MLB Alerts</h2>
+            <label class="alerts-toggle"><input type="checkbox" id="alerts-mlb" /> Desktop alerts for new MLB Alerts tweets</label>
+            <p class="meta">Keyword matches from <code>news_sources.mlb_tweets</code>. Start the server on Home so the Tampermonkey script can save tweets.</p>
+            <div class="actions"><button type="button" id="btn-refresh-tweets">Refresh</button></div>
+            <div id="tweets-list"></div>
+          </div>
+          <div id="mlb-search-all-view" class="mlb-feed-view hidden">
+            <p class="nav-back"><a href="#" id="back-from-mlb-search-all">← Back to MLB</a></p>
+            <h2>MLB Tweets All</h2>
+            <label class="alerts-toggle"><input type="checkbox" id="alerts-mlb-all" /> Desktop alerts for new MLB Search All tweets</label>
+            <p class="meta">All scraped tweets from <code>news_sources.mlb_tweets_all</code>. Use the scrape-all Tampermonkey script to populate.</p>
+            <div class="search-all-toolbar">
+              <label for="search-all-keywords" class="search-all-label">Keyword search</label>
+              <input type="search" id="search-all-keywords" class="search-all-input" placeholder="e.g. injured, Yankees, Ohtani…" autocomplete="off" />
+              <button type="button" id="btn-clear-search-all" class="search-all-clear" title="Clear search">Clear</button>
+            </div>
+            <div class="actions"><button type="button" id="btn-refresh-tweets-all">Refresh</button></div>
+            <div id="tweets-list-all"></div>
+          </div>
+        </div>
+
+        <div id="feed-golf" class="feed-content hidden">
+          <h2>Golf</h2>
+          <label class="alerts-toggle"><input type="checkbox" id="alerts-golf" /> Desktop alerts for new Golf tweets</label>
+          <p class="meta">Tweets from <code>news_sources.golf_tweets</code>. Use a Tampermonkey script (POST to /api/tweet/golf) or a Golf list monitor to populate.</p>
+          <div class="actions"><button type="button" id="btn-refresh-tweets-golf">Refresh</button></div>
+          <div id="tweets-list-golf"></div>
+        </div>
+        <div id="feed-nfl" class="feed-content hidden">
+          <p class="empty-state">NFL feed coming soon. Add a monitor and configure an NFL list to see tweets here.</p>
+        </div>
+        <div id="feed-politics" class="feed-content hidden">
+          <p class="empty-state">Politics feed coming soon. Add a monitor and configure a Politics list to see tweets here.</p>
+        </div>
       </section>
     </div>
   </div>

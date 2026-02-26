@@ -1,14 +1,14 @@
 :root {
-  --bg: #0f1419;
-  --surface: #1a1f26;
-  --border: #2f3640;
-  --text: #e7e9ea;
-  --muted: #71767b;
+  --bg: #1a2332;
+  --surface: #232d3f;
+  --border: #354358;
+  --text: #e8eaed;
+  --muted: #8b95a5;
   --accent: #1d9bf0;
   --accent-hover: #1a8cd8;
   --danger: #f4212e;
   --success: #00ba7c;
-  --radius: 8px;
+  --radius: 6px;
   --font: "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
@@ -26,9 +26,10 @@ body {
 }
 
 .app {
-  max-width: 720px;
+  max-width: min(1100px, 95vw);
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  width: 100%;
 }
 
 header {
@@ -89,11 +90,133 @@ header h1 {
   border-radius: 4px;
 }
 
-#tweets-list {
+.mlb-options {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.mlb-option-card {
+  display: block;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.mlb-option-card:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.mlb-option-title {
+  display: block;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.mlb-option-desc {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.mlb-option-desc code {
+  background: var(--surface);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.nav-back {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+
+.nav-back a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.nav-back a:hover {
+  text-decoration: underline;
+}
+
+#tweets-list,
+#tweets-list-all,
+#tweets-list-golf {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.mlb-feed-view.hidden,
+.mlb-section.hidden {
+  display: none;
+}
+
+/* MLB Search All: bigger UI with keyword search */
+.mlb-search-all-view .search-all-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0 1.25rem;
+  padding: 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.search-all-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+
+.search-all-input {
+  flex: 1 1 16rem;
+  min-width: 12rem;
+  padding: 0.65rem 1rem;
+  font-size: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+}
+
+.search-all-input::placeholder {
+  color: var(--muted);
+}
+
+.search-all-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.search-all-clear {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.9rem;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.search-all-clear:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.search-no-results {
+  margin-top: 1rem;
+  color: var(--muted);
 }
 
 .tweet-card {
@@ -115,6 +238,22 @@ header h1 {
 }
 
 .tweet-card .author a:hover {
+  text-decoration: underline;
+}
+
+.tweet-card .tweet-link {
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+  margin-bottom: 0.35rem;
+}
+
+.tweet-card .tweet-link a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.tweet-card .tweet-link a:hover {
+  color: var(--accent);
   text-decoration: underline;
 }
 
@@ -140,13 +279,13 @@ section {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.25rem;
-  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
 .add-monitor label {
   display: block;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .add-monitor label.inline {
@@ -167,10 +306,10 @@ section {
 .add-monitor input[type="number"],
 .add-monitor textarea {
   width: 100%;
-  padding: 0.6rem 0.75rem;
+  padding: 0.45rem 0.6rem;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: var(--text);
   font: inherit;
 }
@@ -192,8 +331,27 @@ section {
   color: var(--muted);
 }
 
+.add-monitor .table-name-preview {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.add-monitor .create-table-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.add-monitor .create-table-row .meta.small {
+  margin-top: 0;
+}
+
 .actions {
-  margin-top: 1.25rem;
+  margin-top: 0.85rem;
 }
 
 button {
@@ -309,3 +467,394 @@ button.danger:hover {
 
 .toast.success { border-left: 4px solid var(--success); }
 .toast.error   { border-left: 4px solid var(--danger); }
+
+/* Server status on Home */
+.server-status-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.status-pill {
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+}
+
+.status-pill.status-on {
+  color: var(--success);
+  background: rgba(0, 186, 124, 0.15);
+  border: 1px solid var(--success);
+}
+
+.status-pill.status-off {
+  color: var(--danger);
+  background: rgba(244, 33, 46, 0.15);
+  border: 1px solid var(--danger);
+}
+
+.status-pill.status-unknown {
+  color: var(--muted);
+  background: rgba(113, 118, 123, 0.2);
+  border: 1px solid var(--border);
+}
+
+.server-panel .meta.small {
+  font-size: 0.8rem;
+  margin-top: 0.75rem;
+}
+
+/* Kalshi panel – full width, condensed */
+.kalshi-panel {
+  max-width: 100%;
+}
+
+.kalshi-panel .meta,
+.kalshi-panel .meta.small {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+
+.kalshi-panel .server-status-row {
+  margin-bottom: 0.4rem;
+}
+
+.kalshi-env-row {
+  margin: 0.6rem 0;
+}
+
+.kalshi-env-row label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.kalshi-env-row select {
+  padding: 0.4rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.kalshi-data-section {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.kalshi-data-section h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.kalshi-data-section--collapsible .kalshi-section-toggle {
+  cursor: pointer;
+  user-select: none;
+  padding-right: 1.25rem;
+  position: relative;
+}
+.kalshi-data-section--collapsible .kalshi-section-toggle::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  padding: 3px;
+  transform: translateY(-60%) rotate(45deg);
+  transition: transform 0.15s ease;
+}
+.kalshi-data-section--collapsible .kalshi-section-toggle[aria-expanded="true"]::after {
+  transform: translateY(-40%) rotate(-135deg);
+}
+.kalshi-data-section--collapsible .kalshi-section-body {
+  display: block;
+}
+.kalshi-data-section--collapsible .kalshi-section-toggle[aria-expanded="false"] + .kalshi-section-body {
+  display: none;
+}
+
+.kalshi-balance,
+.kalshi-exchange-status {
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.kalshi-orders-list,
+.kalshi-positions-list,
+.kalshi-request-url {
+  word-break: break-all;
+  margin: 0.5rem 0 0.25rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+
+.kalshi-markets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  font-size: 0.88rem;
+}
+
+.kalshi-order-row,
+.kalshi-position-row,
+.kalshi-market-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.kalshi-order-ticker,
+.kalshi-position-ticker,
+.kalshi-market-ticker {
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+}
+
+.kalshi-market-ticker {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.kalshi-market-ticker:hover {
+  text-decoration: underline;
+}
+
+.kalshi-cancel-btn {
+  margin-left: auto;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.kalshi-markets-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.kalshi-markets-toolbar input {
+  flex: 1;
+  min-width: 8rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+/* Place order form: single condensed row */
+.kalshi-panel #form-kalshi-order {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+}
+
+.kalshi-panel #form-kalshi-order label {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.kalshi-panel #form-kalshi-order label span {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.kalshi-panel #form-kalshi-order input,
+.kalshi-panel #form-kalshi-order select {
+  padding: 0.4rem 0.55rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9rem;
+  width: 100%;
+  min-width: 4rem;
+}
+
+.kalshi-panel #form-kalshi-order label.kalshi-form-cell-ticker {
+  flex: 2 1 12rem;
+  min-width: 10rem;
+}
+
+.kalshi-panel #form-kalshi-order label:not(.kalshi-form-cell-ticker):not(.kalshi-no-price-cell) {
+  flex: 0 0 auto;
+  width: 5rem;
+}
+
+.kalshi-panel #form-kalshi-order label.kalshi-no-price-cell {
+  flex: 0 0 auto;
+  width: 5rem;
+}
+
+.kalshi-panel #form-kalshi-order label.kalshi-form-cell-expiration {
+  flex: 1 1 10rem;
+  min-width: 10rem;
+}
+.kalshi-panel #form-kalshi-order label.kalshi-form-cell-expiration-datetime {
+  flex: 1 1 12rem;
+  min-width: 12rem;
+}
+.kalshi-panel #form-kalshi-order label.kalshi-form-cell-reciprocal {
+  flex: 1 1 100%;
+}
+
+.kalshi-batch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+
+.kalshi-batch-label {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.kalshi-batch-list {
+  flex: 1;
+  min-width: 8rem;
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+}
+
+.kalshi-market-title {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.kalshi-market-title:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.kalshi-market-title-full {
+  display: none;
+  flex: 1 1 100%;
+  width: 100%;
+  padding: 0.4rem 0 0;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+.kalshi-market-row.kalshi-market-row--expanded .kalshi-market-title-full {
+  display: block;
+}
+
+.kalshi-add-to-order-btn {
+  flex-shrink: 0;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.kalshi-status-input {
+  max-width: 6rem;
+}
+
+.kalshi-panel #form-kalshi-order .actions {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.kalshi-panel #form-kalshi-order .actions button {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+/* Notifications sub-bar (feeds: MLB, Golf, NFL, Politics) */
+.notifications .sub-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.notifications .sub-tab {
+  padding: 0.4rem 0.85rem;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.notifications .sub-tab:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.notifications .sub-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+#notifications-sub-nav.hidden {
+  display: none;
+}
+
+.notifications .feed-content.hidden {
+  display: none;
+}
+
+.alerts-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.alerts-toggle input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent);
+}
+
+.notification-feed-panel {
+  margin-top: 0;
+}
+
+.notification-feed-panel .meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.notification-feed-panel.hidden {
+  display: none;
+}

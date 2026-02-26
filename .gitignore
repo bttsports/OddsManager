@@ -5,3 +5,6 @@ __pycache__/
 
 # Rust / Cargo
 desktop/src-tauri/target/
+
+# Playwright persistent profile (X login data)
+.playwright_x_profile/
