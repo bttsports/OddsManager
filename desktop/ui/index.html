@@ -193,6 +193,21 @@
               </select>
               <button type="button" id="btn-mm-load-stakes">Load stakes</button>
             </div>
+            <div id="mm-event-info" class="mm-event-info hidden" aria-live="polite"></div>
+            <div class="mm-apply-all-section">
+              <h5 class="mm-apply-all-title">Apply to all stakes</h5>
+              <div class="mm-apply-all-form">
+                <label><span>Shares</span><input type="number" id="mm-apply-shares" min="0" placeholder="blank = skip" /></label>
+                <label><span>Side</span><select id="mm-apply-side"><option value="yes">Yes</option><option value="no">No</option><option value="both">Both</option></select></label>
+                <label><span>Yes (¢)</span><input type="number" id="mm-apply-yes_price" min="1" max="99" placeholder="1–99" /></label>
+                <label><span>No (¢)</span><input type="number" id="mm-apply-no_price" min="1" max="99" placeholder="1–99" /></label>
+                <label><span>% reload</span><input type="number" id="mm-apply-pct_reload" min="0" max="100" placeholder="e.g. 75" /></label>
+                <label><span>Repost price base</span><select id="mm-apply-repost_base"><option value="previous_fill">Previous fill</option><option value="market_mean">Market mean</option><option value="market_best_offer">Market best offer</option></select></label>
+                <label><span>Cents off</span><input type="number" id="mm-apply-cents_off" min="0" value="0" placeholder="0" /></label>
+                <label><span>Max shares</span><input type="number" id="mm-apply-max_shares" min="0" placeholder="Optional" /></label>
+                <button type="button" id="btn-mm-apply-all">Apply to all</button>
+              </div>
+            </div>
             <div id="mm-stakes-container" class="mm-stakes-container">
               <button type="button" id="btn-mm-toggle-stakes" class="mm-toggle-stakes hidden" aria-expanded="false">▼ Show all stakes</button>
               <div id="mm-stakes-list" class="mm-stakes-list"></div>

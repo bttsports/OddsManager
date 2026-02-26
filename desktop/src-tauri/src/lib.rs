@@ -1391,6 +1391,97 @@ struct MmStrategyConfig {
     stakes: Vec<MmStakeConfig>,
 }
 
+/// Sanitize event ticker for use in systemd service name (lowercase alphanumeric only).
+fn mm_service_suffix(event_ticker: &str) -> String {
+    event_ticker
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect::<String>()
+}
+
+fn mm_service_installer_content(config: &MmStrategyConfig) -> String {
+    let script_name = format!(
+        "mm_{}.py",
+        config.event_ticker.replace(['-', ' '], "_")
+    );
+    let service_suffix = mm_service_suffix(&config.event_ticker);
+    let service_name = format!("oddsmanager-mm-{}", service_suffix);
+    let env_str = config
+        .env
+        .as_deref()
+        .map(|e| format!(r#"Environment="KALSHI_ENV={}""#, e.to_uppercase()))
+        .unwrap_or_else(|| r#"Environment="KALSHI_ENV=prod""#.to_string());
+    format!(
+        r#"#!/bin/bash
+# Install and start the market-making strategy as a systemd service.
+# Run this on your VPS (e.g. DigitalOcean) after copying the strategy script and this installer.
+#
+# Prerequisites:
+#   - Project cloned to PROJECT_ROOT
+#   - venv created and deps installed
+#   - .env with KALSHI_API_KEY, KALSHI_PRIVATE_KEY_PATH
+#
+# Usage: ./install_{install_sh}.sh
+# Or:    bash install_{install_sh}.sh
+
+set -e
+
+# Edit these if your paths differ:
+DEPLOY_USER="${{DEPLOY_USER:-your_user}}"
+PROJECT_ROOT="${{PROJECT_ROOT:-/home/your_user/projects/OddsManager}}"
+SCRIPT_NAME="{script_name}"
+SERVICE_NAME="{service_name}"
+
+PYTHON="${{PROJECT_ROOT}}/venv/bin/python"
+SCRIPT_PATH="${{PROJECT_ROOT}}/{script_name}"
+
+if [[ ! -f "$SCRIPT_PATH" ]]; then
+  echo "Error: Strategy script not found at $SCRIPT_PATH"
+  echo "Copy $SCRIPT_NAME to your project root first."
+  exit 1
+fi
+
+SVC_FILE="/etc/systemd/system/${{SERVICE_NAME}}.service"
+echo "Creating $SVC_FILE ..."
+sudo tee "$SVC_FILE" > /dev/null << EOF
+[Unit]
+Description=OddsManager MM - {event_ticker}
+After=network.target oddsmanager-kalshi-api.service
+
+[Service]
+Type=simple
+User=$DEPLOY_USER
+Group=$DEPLOY_USER
+WorkingDirectory=$PROJECT_ROOT
+EnvironmentFile=$PROJECT_ROOT/.env
+Environment=PATH=$PROJECT_ROOT/venv/bin
+{env_line}
+ExecStart=$PYTHON $SCRIPT_PATH
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "Reloading systemd, enabling and starting $SERVICE_NAME ..."
+sudo systemctl daemon-reload
+sudo systemctl enable "$SERVICE_NAME"
+sudo systemctl start "$SERVICE_NAME"
+sudo systemctl status "$SERVICE_NAME" --no-pager
+echo ""
+echo "Done. Use: sudo systemctl status $SERVICE_NAME  # check status"
+echo "        sudo journalctl -u $SERVICE_NAME -f     # follow logs"
+"#,
+        install_sh = config.event_ticker.replace(['-', ' '], "_"),
+        script_name = script_name,
+        service_name = service_name,
+        event_ticker = config.event_ticker,
+        env_line = env_str,
+    )
+}
+
 fn mm_strategy_script_content(config: &MmStrategyConfig) -> String {
     let config_json = serde_json::to_string(config).unwrap_or_else(|_| "{}".to_string());
     let config_escaped = config_json.replace("'''", "\\'''");
@@ -1439,12 +1530,15 @@ fn generate_mm_strategy_script(config: MmStrategyConfig) -> Result<String, Strin
 fn save_mm_config(app: tauri::AppHandle, config: MmStrategyConfig) -> Result<String, String> {
     let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     let default_name = format!("mm_{}_config.json", config.event_ticker.replace(['-', ' '], "_"));
-    let path = app
+    let mut dialog = app
         .dialog()
         .file()
         .add_filter("JSON", &["json"])
-        .set_file_name(&default_name)
-        .blocking_save_file();
+        .set_file_name(&default_name);
+    if let Ok(root) = project_root() {
+        dialog = dialog.set_directory(root);
+    }
+    let path = dialog.blocking_save_file();
     match path {
         Some(p) => {
             let path_buf = p.into_path().map_err(|e| e.to_string())?;
@@ -1459,16 +1553,36 @@ fn save_mm_config(app: tauri::AppHandle, config: MmStrategyConfig) -> Result<Str
 fn save_mm_strategy_script(app: tauri::AppHandle, config: MmStrategyConfig) -> Result<String, String> {
     let script = mm_strategy_script_content(&config);
     let default_name = format!("mm_{}.py", config.event_ticker.replace(['-', ' '], "_"));
-    let path = app
+    let mut dialog = app
         .dialog()
         .file()
         .add_filter("Python", &["py"])
-        .set_file_name(&default_name)
-        .blocking_save_file();
+        .set_file_name(&default_name);
+    if let Ok(root) = project_root() {
+        dialog = dialog.set_directory(root);
+    }
+    let path = dialog.blocking_save_file();
     match path {
         Some(p) => {
             let path_buf = p.into_path().map_err(|e| e.to_string())?;
             fs::write(&path_buf, &script).map_err(|e| e.to_string())?;
+
+            // Also write the VPS installer bash script to src-tauri/market_making_services/
+            if let Ok(root) = project_root() {
+                let services_dir = root.join("desktop").join("src-tauri").join("market_making_services");
+                if fs::create_dir_all(&services_dir).is_ok() {
+                    let install_name = format!(
+                        "install_mm_{}.sh",
+                        config.event_ticker.replace(['-', ' '], "_")
+                    );
+                    let install_path = services_dir.join(&install_name);
+                    let install_content = mm_service_installer_content(&config);
+                    if let Err(e) = fs::write(&install_path, &install_content) {
+                        eprintln!("Could not write installer to {:?}: {}", install_path, e);
+                    }
+                }
+            }
+
             Ok(path_buf.display().to_string())
         }
         None => Err("Save cancelled".to_string()),

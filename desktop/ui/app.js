@@ -84,6 +84,7 @@ const btnMmLoadStakes = document.getElementById("btn-mm-load-stakes");
 const mmStakesContainer = document.getElementById("mm-stakes-container");
 const btnMmToggleStakes = document.getElementById("btn-mm-toggle-stakes");
 const mmStakesListEl = document.getElementById("mm-stakes-list");
+const mmEventInfoEl = document.getElementById("mm-event-info");
 const mmStrategiesListEl = document.getElementById("mm-strategies-list");
 const btnMmRefreshStrategies = document.getElementById("btn-mm-refresh-strategies");
 const mmOrderbookTicker = document.getElementById("mm-orderbook-ticker");
@@ -1223,6 +1224,18 @@ if (btnMmLoadStakes && mmEventTicker) {
         return et === q || tk === q || et.startsWith(q) || tk.startsWith(q);
       });
       mmStakes = markets;
+      if (mmEventInfoEl) {
+        const rawMarkets = (data && data.markets) || [];
+        const firstMarket = markets[0] || rawMarkets[0];
+        const eventTitle = (data && data.event && data.event.title) || (firstMarket && firstMarket.title) || null;
+        if (eventTitle) {
+          mmEventInfoEl.textContent = eventTitle;
+          mmEventInfoEl.classList.remove("hidden");
+        } else {
+          mmEventInfoEl.textContent = "";
+          mmEventInfoEl.classList.add("hidden");
+        }
+      }
       if (markets.length === 0) {
         mmStakesListEl.innerHTML = "<p class=\"empty-state\">No stakes found for this event.</p>";
         if (btnMmToggleStakes) btnMmToggleStakes.classList.add("hidden");
@@ -1249,7 +1262,44 @@ if (btnMmLoadStakes && mmEventTicker) {
     } catch (e) {
       mmStakesListEl.innerHTML = "<p class=\"empty-state\">Error: " + escapeHtml(String(e)) + ". Is the Kalshi API running?</p>";
       if (btnMmToggleStakes) btnMmToggleStakes.classList.add("hidden");
+      if (mmEventInfoEl) { mmEventInfoEl.textContent = ""; mmEventInfoEl.classList.add("hidden"); }
     }
+  });
+}
+
+const btnMmApplyAll = document.getElementById("btn-mm-apply-all");
+if (btnMmApplyAll && mmStakesListEl) {
+  btnMmApplyAll.addEventListener("click", () => {
+    const fields = ["shares", "side", "yes_price", "no_price", "pct_reload", "repost_base", "cents_off", "max_shares"];
+    const applyIds = ["mm-apply-shares", "mm-apply-side", "mm-apply-yes_price", "mm-apply-no_price", "mm-apply-pct_reload", "mm-apply-repost_base", "mm-apply-cents_off", "mm-apply-max_shares"];
+    const applyEls = applyIds.map((id) => document.getElementById(id)).filter(Boolean);
+    const stakeRows = mmStakesListEl.querySelectorAll(".mm-stake-row");
+    if (stakeRows.length === 0) {
+      showToast("Load stakes first.", "error");
+      return;
+    }
+    let count = 0;
+    stakeRows.forEach((row) => {
+      const form = row.querySelector(".mm-stake-form");
+      if (!form) return;
+      fields.forEach((field, i) => {
+        const src = applyEls[i];
+        const dst = form.querySelector(`[data-field="${field}"]`);
+        if (!src || !dst) return;
+        const tag = src.tagName.toLowerCase();
+        if (tag === "select") {
+          dst.value = src.value;
+          count++;
+        } else {
+          const v = src.value.trim();
+          if (v !== "" || field === "cents_off") {
+            dst.value = v;
+            count++;
+          }
+        }
+      });
+    });
+    showToast(`Applied to ${stakeRows.length} stake(s).`);
   });
 }
 
@@ -1369,7 +1419,7 @@ if (btnMmGenerateStrategyScript) {
           stakes,
         },
       });
-      showToast("Strategy script saved to " + path);
+      showToast("Strategy script saved to " + path + ". Installer written to desktop/src-tauri/market_making_services/");
     } catch (err) {
       const msg = (err && err.toString()) || "Generate failed";
       if (msg.includes("cancelled") || msg.includes("Save cancelled")) {

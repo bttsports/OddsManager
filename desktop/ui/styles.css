@@ -834,6 +834,65 @@ button.danger:hover {
   border-bottom: 1px solid var(--border);
 }
 
+.mm-event-info {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-alt, #1a1a1a);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.mm-apply-all-section {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: var(--surface, #232d3f);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.mm-apply-all-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 0.5rem 0;
+}
+.mm-apply-all-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+.mm-apply-all-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.mm-apply-all-form label span { color: #fff; font-weight: 600; }
+.mm-apply-all-form input,
+.mm-apply-all-form select {
+  padding: 0.3rem 0.5rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--bg, #0f1624);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.mm-apply-all-form input::placeholder { color: rgba(255, 255, 255, 0.6); }
+.mm-apply-all-form #btn-mm-apply-all {
+  padding: 0.4rem 0.75rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mm-apply-all-form #btn-mm-apply-all:hover { opacity: 0.9; }
+
 .mm-stakes-container {
   margin-top: 0.5rem;
 }
