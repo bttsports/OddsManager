@@ -1,25 +1,38 @@
 #!/bin/bash
 # Install and start the market-making strategy as a systemd service.
-# Run this on your VPS (e.g. DigitalOcean) from the market_making folder.
+# Run this on your VPS (e.g. DigitalOcean) from market_making_services/.
 #
 # Prerequisites:
 #   - Project cloned to PROJECT_ROOT
 #   - venv created and deps installed
 #   - .env with KALSHI_API_KEY, KALSHI_PRIVATE_KEY_PATH
-#   - Strategy script and this installer in market_making/
+#   - Strategy script in market_making/, this installer in market_making_services/
 #
-# Usage (from market_making/): ./install_KXTXSENDPRIMARYMOV_26MAR03.sh
-# Or:  cd market_making && bash install_KXTXSENDPRIMARYMOV_26MAR03.sh
+# Usage (from market_making_services/): ./install_KXTXSENDPRIMARYMOV_26MAR03.sh
 
 set -e
 
-# When run from market_making/, PROJECT_ROOT defaults to parent dir
-DEPLOY_USER="${DEPLOY_USER:-your_user}"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Find project root: walk up until we find a dir containing market_making/
+find_project_root() {
+  local d="$1"
+  while [[ -n "$d" && "$d" != "/" ]]; do
+    [[ -d "$d/market_making" ]] && echo "$d" && return
+    d="$(dirname "$d")"
+  done
+  echo ""
+}
+PROJECT_ROOT="${PROJECT_ROOT:-$(find_project_root "$_SCRIPT_DIR")}"
+if [[ -z "$PROJECT_ROOT" ]]; then
+  echo "Error: Could not find project root (no parent dir contains market_making/). Set PROJECT_ROOT explicitly."
+  exit 1
+fi
+DEPLOY_USER="${DEPLOY_USER:-root}"
 SCRIPT_NAME="mm_KXTXSENDPRIMARYMOV_26MAR03.py"
 SERVICE_NAME="oddsmanager-mm-kxtxsendprimarymov26mar03"
 
-PYTHON="${PROJECT_ROOT}/venv/bin/python"
+# Default: /home/root/venvs/myenv1/bin/python. Override: PYTHON=$PROJECT_ROOT/venv/bin/python
+PYTHON="${PYTHON:-/home/root/venvs/myenv1/bin/python}"
 SCRIPT_PATH="${PROJECT_ROOT}/market_making/mm_KXTXSENDPRIMARYMOV_26MAR03.py"
 
 if [[ ! -f "$SCRIPT_PATH" ]]; then
@@ -41,8 +54,8 @@ User=$DEPLOY_USER
 Group=$DEPLOY_USER
 WorkingDirectory=$PROJECT_ROOT
 EnvironmentFile=$PROJECT_ROOT/.env
-Environment=PATH=$PROJECT_ROOT/venv/bin
-Environment="KALSHI_ENV=PROD"
+Environment=PATH=$(dirname $PYTHON):/usr/local/bin:/usr/bin:/bin
+Environment="KALSHI_ENV=DEMO"
 ExecStart=$PYTHON $SCRIPT_PATH
 Restart=always
 RestartSec=10

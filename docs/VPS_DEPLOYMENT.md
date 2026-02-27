@@ -251,7 +251,8 @@ For a persistent 24/7 bot per strategy, use **Generate strategy script** in the 
 | File | Local path | VPS path (after copy) |
 |------|------------|------------------------|
 | Strategy script | `market_making/mm_KXMAINE94_26.py` | `market_making/mm_KXMAINE94_26.py` |
-| Installer | `desktop/src-tauri/market_making_services/install_mm_KXMAINE94_26.sh` | `market_making/install_mm_KXMAINE94_26.sh` |
+| Installer | `desktop/src-tauri/market_making_services/install_mm_KXMAINE94_26.sh` | `desktop/src-tauri/market_making_services/install_mm_KXMAINE94_26.sh` |
+| Config (optional) | `desktop/src-tauri/configs/` | `desktop/src-tauri/configs/` |
 
 ### Deploy and run
 
@@ -262,32 +263,64 @@ For a persistent 24/7 bot per strategy, use **Generate strategy script** in the 
    ```bash
    # From your local machine (PowerShell or bash)
    scp market_making/mm_KXMAINE94_26.py your_user@YOUR_VPS_IP:/home/your_user/projects/OddsManager/market_making/
-   scp desktop/src-tauri/market_making_services/install_mm_KXMAINE94_26.sh your_user@YOUR_VPS_IP:/home/your_user/projects/OddsManager/market_making/
+   scp desktop/src-tauri/market_making_services/install_mm_KXMAINE94_26.sh your_user@YOUR_VPS_IP:/home/your_user/projects/OddsManager/desktop/src-tauri/market_making_services/
    ```
 
-3. **On the VPS**, run the installer from `market_making/`:
+3. **On the VPS**, run the installer from `market_making_services/`:
 
    ```bash
-   cd /home/your_user/projects/OddsManager/market_making
+   cd /home/your_user/projects/OddsManager/desktop/src-tauri/market_making_services
    chmod +x install_mm_KXMAINE94_26.sh
    ./install_mm_KXMAINE94_26.sh
    ```
 
-   The installer creates the systemd service, enables it, and starts it. If your deploy user or project path differs, override:
+   The installer creates the systemd service, enables it, and starts it. Defaults: `DEPLOY_USER=root`, `PYTHON=/home/root/venvs/myenv1/bin/python`. Override for project venv: `PYTHON=$PROJECT_ROOT/venv/bin/python ./install_mm_....sh`
 
-   ```bash
-   DEPLOY_USER=myuser PROJECT_ROOT=/home/myuser/projects/OddsManager ./install_mm_KXMAINE94_26.sh
-   ```
-
-4. **Multiple strategies:** Generate a separate script and installer for each event, copy both to `market_making/` on the VPS, and run each installer. Each creates its own systemd service (e.g. `oddsmanager-mm-kxmain94`, `oddsmanager-mm-txsenate`).
+4. **Multiple strategies:** Generate a separate script and installer for each event. Copy the `.py` to `market_making/` and the `.sh` to `market_making_services/` on the VPS, then run each installer from `market_making_services/`. Each creates its own systemd service (e.g. `oddsmanager-mm-kxmain94`, `oddsmanager-mm-txsenate`).
 
 ### Useful commands (per-strategy service)
 
 | Command | Purpose |
 |---------|---------|
 | `sudo systemctl status oddsmanager-mm-kxmain94` | Check status |
+| `sudo systemctl stop oddsmanager-mm-kxmain94` | Stop the bot |
 | `sudo systemctl restart oddsmanager-mm-kxmain94` | Restart |
 | `sudo journalctl -u oddsmanager-mm-kxmain94 -f` | Tail logs |
+
+---
+
+## 10a. Combined No Spread: strategy script + installer
+
+The **Combined No Spread** bot offers No liquidity on all stakes when the combined best No ask across markets is below a threshold (e.g. 99¢). It cancels all orders when the condition fails. Polls every 5 seconds.
+
+**In the app:** Kalshi tab → **Combined No Spread** → enter event ticker, Load stakes, select which stakes to include, set Max combined (¢) and Shares per market → **Generate strategy script**.
+
+### File locations
+
+| File | Local path | VPS path (after copy) |
+|------|------------|------------------------|
+| Strategy script | `market_making/combined_no_KXTXSENDPRIMARYMOV_26MAR03.py` | `market_making/combined_no_...py` |
+| Installer | `desktop/src-tauri/market_making_services/install_combined_no_....sh` | same path on VPS |
+
+### Deploy and run
+
+Same flow as Market Making (section 10): copy the `.py` to `market_making/`, the `.sh` to `market_making_services/`, then run from `market_making_services/`:
+
+```bash
+cd /home/your_user/projects/OddsManager/desktop/src-tauri/market_making_services
+chmod +x install_combined_no_KXTXSENDPRIMARYMOV_26MAR03.sh
+./install_combined_no_KXTXSENDPRIMARYMOV_26MAR03.sh
+```
+
+Service name: `oddsmanager-combinedno-<event>` (e.g. `oddsmanager-combinedno-kxtxsendprimarymov26mar03`).
+
+### Useful commands
+
+| Command | Purpose |
+|---------|---------|
+| `sudo systemctl status oddsmanager-combinedno-kxtxsendprimarymov26mar03` | Check status |
+| `sudo systemctl stop oddsmanager-combinedno-kxtxsendprimarymov26mar03` | Stop |
+| `sudo journalctl -u oddsmanager-combinedno-kxtxsendprimarymov26mar03 -f` | Tail logs |
 
 ---
 
@@ -361,6 +394,8 @@ sudo systemctl start oddsmanager-market-making
 | `sudo systemctl restart oddsmanager-kalshi-api` | Restart Kalshi API |
 | `sudo journalctl -u oddsmanager-kalshi-api -f` | Tail Kalshi API logs |
 | `sudo systemctl status oddsmanager-mm-<event>` | Check market-making bot (e.g. `oddsmanager-mm-kxmain94`) |
+| `sudo systemctl stop oddsmanager-mm-kxmain94` | Stop market-making bot |
+| `sudo systemctl status oddsmanager-combinedno-<event>` | Check Combined No Spread bot |
 | `sudo journalctl -u oddsmanager-mm-kxmain94 -f` | Tail market-making bot logs |
 
 ---

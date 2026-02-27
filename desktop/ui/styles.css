@@ -923,6 +923,16 @@ button.danger:hover {
   font-size: 0.9rem;
 }
 .mm-stake-header:hover { background: var(--border); }
+.cns-stake-include {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+}
+.cns-stake-row .mm-stake-ticker { font-family: var(--mono, monospace); font-weight: 600; }
+.cns-stake-row .mm-stake-title { flex: 1; color: var(--muted); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mm-stake-ticker { font-family: var(--mono, monospace); font-weight: 600; }
 .mm-stake-title { flex: 1; color: var(--muted); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mm-stake-form {

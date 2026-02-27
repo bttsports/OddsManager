@@ -94,8 +94,16 @@ const btnMmGenerateScript = document.getElementById("btn-mm-generate-script");
 const btnMmGenerateStrategyScript = document.getElementById("btn-mm-generate-strategy-script");
 const btnMmSaveConfig = document.getElementById("btn-mm-save-config");
 
+const cnsEventTicker = document.getElementById("cns-event-ticker");
+const cnsMarketsStatus = document.getElementById("cns-markets-status");
+const btnCnsLoadStakes = document.getElementById("btn-cns-load-stakes");
+const cnsStakesListEl = document.getElementById("cns-stakes-list");
+const cnsEventInfoEl = document.getElementById("cns-event-info");
+const btnCnsGenerateStrategyScript = document.getElementById("btn-cns-generate-strategy-script");
+
 let kalshiBatchTickers = [];
 let mmStakes = [];
+let cnsStakes = [];
 
 function showToast(message, type = "success") {
   toastEl.textContent = message;
@@ -715,6 +723,10 @@ function mmEnv() {
   return (document.getElementById("mm-env") && document.getElementById("mm-env").value) || "demo";
 }
 
+function cnsEnv() {
+  return (document.getElementById("cns-env") && document.getElementById("cns-env").value) || "demo";
+}
+
 function showKalshiSection(section) {
   document.querySelectorAll(".kalshi-section-content").forEach((el) => el.classList.add("hidden"));
   const active = document.getElementById("kalshi-section-" + section);
@@ -1311,6 +1323,121 @@ if (btnMmToggleStakes) {
     btnMmToggleStakes.textContent = expanded
       ? "▼ Show all stakes" + (mmStakes.length ? " (" + mmStakes.length + ")" : "")
       : "▲ Hide stakes";
+  });
+}
+
+// --- Combined No Spread ---
+function renderCnsStakeRow(m) {
+  const ticker = m.ticker || "?";
+  const title = (m.title || ticker).length > 55 ? (m.title || ticker).substring(0, 55) + "…" : (m.title || ticker);
+  return `<div class="mm-stake-row cns-stake-row" data-ticker="${escapeAttr(ticker)}">
+    <label class="cns-stake-include">
+      <input type="checkbox" data-cns-include checked />
+      <span class="mm-stake-ticker">${escapeHtml(ticker)}</span>
+      <span class="mm-stake-title" title="${escapeAttr(m.title || "")}">${escapeHtml(title)}</span>
+    </label>
+  </div>`;
+}
+
+if (btnCnsLoadStakes && cnsEventTicker && cnsStakesListEl) {
+  btnCnsLoadStakes.addEventListener("click", async () => {
+    const eventTicker = (cnsEventTicker && cnsEventTicker.value.trim()) || null;
+    if (!eventTicker) {
+      showToast("Enter an Event ticker.", "error");
+      return;
+    }
+    const statusRaw = cnsMarketsStatus ? cnsMarketsStatus.value : "";
+    const status = statusRaw.trim() || undefined;
+    const env = cnsEnv();
+    try {
+      const dashCount = eventTicker ? (eventTicker.match(/-/g) || []).length : 0;
+      const eventTickerForApi = dashCount >= 2 ? eventTicker.replace(/-[^-]*$/, "") : eventTicker;
+      const payload = { env, limit: 200, status: status || null, event_ticker: eventTickerForApi };
+      const data = await invoke("kalshi_markets", { p: payload });
+      let markets = (data && data.markets) || (data && data.data && data.data.markets) || [];
+      const q = eventTicker.toLowerCase();
+      markets = markets.filter((m) => {
+        const et = (m.event_ticker || "").toLowerCase();
+        const tk = (m.ticker || "").toLowerCase();
+        return et === q || tk === q || et.startsWith(q) || tk.startsWith(q);
+      });
+      cnsStakes = markets;
+      if (cnsEventInfoEl) {
+        const rawMarkets = (data && data.markets) || [];
+        const firstMarket = markets[0] || rawMarkets[0];
+        const eventTitle = (data && data.event && data.event.title) || (firstMarket && firstMarket.title) || null;
+        if (eventTitle) {
+          cnsEventInfoEl.textContent = eventTitle;
+          cnsEventInfoEl.classList.remove("hidden");
+        } else {
+          cnsEventInfoEl.textContent = "";
+          cnsEventInfoEl.classList.add("hidden");
+        }
+      }
+      if (markets.length === 0) {
+        cnsStakesListEl.innerHTML = "<p class=\"empty-state\">No stakes found for this event.</p>";
+      } else {
+        cnsStakesListEl.innerHTML = markets.map(renderCnsStakeRow).join("");
+      }
+    } catch (e) {
+      cnsStakesListEl.innerHTML = "<p class=\"empty-state\">Error: " + escapeHtml(String(e)) + ". Is the Kalshi API running?</p>";
+      if (cnsEventInfoEl) { cnsEventInfoEl.textContent = ""; cnsEventInfoEl.classList.add("hidden"); }
+    }
+  });
+}
+
+if (btnCnsGenerateStrategyScript && cnsStakesListEl) {
+  btnCnsGenerateStrategyScript.addEventListener("click", async () => {
+    const eventTicker = (cnsEventTicker && cnsEventTicker.value.trim()) || "";
+    const tickers = [];
+    cnsStakesListEl.querySelectorAll(".cns-stake-row").forEach((row) => {
+      const cb = row.querySelector("[data-cns-include]");
+      if (cb && cb.checked && row.dataset.ticker) tickers.push(row.dataset.ticker);
+    });
+    if (tickers.length === 0) {
+      showToast("Load stakes and select at least one.", "error");
+      return;
+    }
+    const maxCombined = parseInt(document.getElementById("cns-max-combined")?.value || "99", 10) || 99;
+    const shares = parseInt(document.getElementById("cns-shares")?.value || "10", 10) || 10;
+    const alertWebhook = (document.getElementById("cns-alert-webhook")?.value || "").trim() || null;
+    try {
+      const path = await invoke("save_combined_no_strategy_script", {
+        config: {
+          event_ticker: eventTicker,
+          env: cnsEnv(),
+          check_interval_sec: 5,
+          max_combined: maxCombined,
+          shares,
+          tickers,
+          alert_webhook_url: alertWebhook,
+        },
+      });
+      showToast("Strategy script saved to " + path + ". Installer written to desktop/src-tauri/market_making_services/");
+    } catch (err) {
+      const msg = (err && err.toString()) || "Generate failed";
+      if (msg.includes("cancelled") || msg.includes("Save cancelled")) {
+        showToast("Save cancelled.");
+      } else {
+        try {
+          const script = await invoke("generate_combined_no_strategy_script", {
+            config: {
+              event_ticker: eventTicker,
+              env: cnsEnv(),
+              check_interval_sec: 5,
+              max_combined: maxCombined,
+              shares,
+              tickers,
+              alert_webhook_url: alertWebhook,
+            },
+          });
+          await navigator.clipboard.writeText(script);
+          showToast("Script copied to clipboard (save cancelled or failed).");
+        } catch (e2) {
+          showToast(msg, "error");
+        }
+      }
+    }
   });
 }
 

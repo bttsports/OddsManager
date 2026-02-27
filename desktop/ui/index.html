@@ -93,6 +93,7 @@
         <nav id="kalshi-sub-nav" class="sub-tabs kalshi-sub-tabs" aria-label="Kalshi sections">
           <button type="button" class="sub-tab active" data-kalshi-section="trading">Trading</button>
           <button type="button" class="sub-tab" data-kalshi-section="market-making">Market Making</button>
+          <button type="button" class="sub-tab" data-kalshi-section="combined-no-spread">Combined No Spread</button>
         </nav>
 
         <div id="kalshi-section-trading" class="kalshi-section-content">
@@ -244,6 +245,52 @@
             <button type="button" id="btn-mm-generate-strategy-script">Generate strategy script</button>
             <button type="button" id="btn-mm-save-config" class="secondary">Save config for VPS</button>
             <button type="button" id="btn-mm-generate-script" class="secondary">Generate barebones script</button>
+          </div>
+        </div>
+
+        <div id="kalshi-section-combined-no-spread" class="kalshi-section-content hidden">
+          <h3>Combined No Spread</h3>
+          <p class="meta small">Offer No liquidity on all stakes when combined best No ask &lt; max combined. Cancels all orders when condition fails. Polls every 5s. For mutually exclusive events (e.g. A vs B).</p>
+
+          <div class="kalshi-env-row">
+            <label><span>Environment</span></label>
+            <select id="cns-env">
+              <option value="demo">DEMO</option>
+              <option value="prod">PROD</option>
+            </select>
+          </div>
+
+          <div class="kalshi-data-section">
+            <h4>Event ticker – load stakes</h4>
+            <div class="kalshi-markets-toolbar">
+              <input type="text" id="cns-event-ticker" placeholder="Event ticker (e.g. KXMAINE94-26)" />
+              <select id="cns-markets-status" class="kalshi-status-input">
+                <option value="">Any</option>
+                <option value="open" selected>Open</option>
+                <option value="closed">Closed</option>
+                <option value="settled">Settled</option>
+              </select>
+              <button type="button" id="btn-cns-load-stakes">Load stakes</button>
+            </div>
+            <div id="cns-event-info" class="mm-event-info hidden" aria-live="polite"></div>
+            <div id="cns-stakes-container" class="mm-stakes-container">
+              <div id="cns-stakes-list" class="mm-stakes-list"></div>
+            </div>
+          </div>
+
+          <div class="kalshi-data-section">
+            <h4>Strategy params</h4>
+            <div class="mm-global-row">
+              <label><span>Max combined (¢)</span><input type="number" id="cns-max-combined" min="1" max="99" value="99" placeholder="99" /></label>
+              <label><span>Shares per market</span><input type="number" id="cns-shares" min="1" value="10" /></label>
+              <label><span>Alert webhook URL</span><input type="text" id="cns-alert-webhook" placeholder="Optional – POST when condition fails" /></label>
+            </div>
+          </div>
+
+          <div class="kalshi-data-section">
+            <h4>Script generation</h4>
+            <p class="meta small">Generate and save the Combined No Spread strategy script. Installer written to desktop/src-tauri/market_making_services/</p>
+            <button type="button" id="btn-cns-generate-strategy-script">Generate strategy script</button>
           </div>
         </div>
       </section>
