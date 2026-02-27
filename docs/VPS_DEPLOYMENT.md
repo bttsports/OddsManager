@@ -274,7 +274,7 @@ For a persistent 24/7 bot per strategy, use **Generate strategy script** in the 
    ./install_mm_KXMAINE94_26.sh
    ```
 
-   The installer creates the systemd service, enables it, and starts it. Defaults: `DEPLOY_USER=root`, `PYTHON=/home/root/venvs/myenv1/bin/python`. Override for project venv: `PYTHON=$PROJECT_ROOT/venv/bin/python ./install_mm_....sh`
+   The installer creates the systemd service, enables it, and starts it. Defaults: `DEPLOY_USER=root`, `PYTHON=/home/your_user/venvs/myenv1/bin/python`. Override for project venv: `PYTHON=$PROJECT_ROOT/venv/bin/python ./install_mm_....sh`
 
 4. **Multiple strategies:** Generate a separate script and installer for each event. Copy the `.py` to `market_making/` and the `.sh` to `market_making_services/` on the VPS, then run each installer from `market_making_services/`. Each creates its own systemd service (e.g. `oddsmanager-mm-kxmain94`, `oddsmanager-mm-txsenate`).
 

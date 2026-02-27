@@ -31,8 +31,8 @@ DEPLOY_USER="${DEPLOY_USER:-root}"
 SCRIPT_NAME="mm_KXTXSENDPRIMARYMOV_26MAR03.py"
 SERVICE_NAME="oddsmanager-mm-kxtxsendprimarymov26mar03"
 
-# Default: /home/root/venvs/myenv1/bin/python. Override: PYTHON=$PROJECT_ROOT/venv/bin/python
-PYTHON="${PYTHON:-/home/root/venvs/myenv1/bin/python}"
+# Default: /home/your_user/venvs/myenv1/bin/python. Override: PYTHON=$PROJECT_ROOT/venv/bin/python
+PYTHON="${PYTHON:-/home/your_user/venvs/myenv1/bin/python}"
 SCRIPT_PATH="${PROJECT_ROOT}/market_making/mm_KXTXSENDPRIMARYMOV_26MAR03.py"
 
 if [[ ! -f "$SCRIPT_PATH" ]]; then

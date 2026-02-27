@@ -1459,8 +1459,8 @@ DEPLOY_USER="${{DEPLOY_USER:-root}}"
 SCRIPT_NAME="{script_name}"
 SERVICE_NAME="{service_name}"
 
-# Default: /home/root/venvs/myenv1/bin/python. Override: PYTHON=$PROJECT_ROOT/venv/bin/python
-PYTHON="${{PYTHON:-/home/root/venvs/myenv1/bin/python}}"
+# Default: /home/your_user/venvs/myenv1/bin/python. Override: PYTHON=$PROJECT_ROOT/venv/bin/python
+PYTHON="${{PYTHON:-/home/your_user/venvs/myenv1/bin/python}}"
 SCRIPT_PATH="${{PROJECT_ROOT}}/market_making/{script_name}"
 
 if [[ ! -f "$SCRIPT_PATH" ]]; then
@@ -1565,11 +1565,15 @@ fn save_mm_config(app: tauri::AppHandle, config: MmStrategyConfig) -> Result<Str
     if let Ok(root) = project_root() {
         dialog = dialog.set_directory(root);
     }
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
     let path = dialog.blocking_save_file();
     match path {
         Some(p) => {
             let path_buf = p.into_path().map_err(|e| e.to_string())?;
             fs::write(&path_buf, &json).map_err(|e| e.to_string())?;
+            bring_main_to_front(&app);
             Ok(path_buf.display().to_string())
         }
         None => Err("Save cancelled".to_string()),
@@ -1589,6 +1593,9 @@ fn save_mm_strategy_script(app: tauri::AppHandle, config: MmStrategyConfig) -> R
         let market_making = root.join("market_making");
         let dir = if market_making.exists() { market_making } else { root };
         dialog = dialog.set_directory(dir);
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
     }
     let path = dialog.blocking_save_file();
     match path {
@@ -1612,6 +1619,7 @@ fn save_mm_strategy_script(app: tauri::AppHandle, config: MmStrategyConfig) -> R
                 }
             }
 
+            bring_main_to_front(&app);
             Ok(path_buf.display().to_string())
         }
         None => Err("Save cancelled".to_string()),
@@ -1694,7 +1702,7 @@ DEPLOY_USER="${{DEPLOY_USER:-root}}"
 SCRIPT_NAME="{script_name}"
 SERVICE_NAME="{service_name}"
 
-PYTHON="${{PYTHON:-/home/root/venvs/myenv1/bin/python}}"
+PYTHON="${{PYTHON:-/home/your_user/venvs/myenv1/bin/python}}"
 SCRIPT_PATH="${{PROJECT_ROOT}}/market_making/{script_name}"
 
 if [[ ! -f "$SCRIPT_PATH" ]]; then
@@ -1762,6 +1770,9 @@ fn save_combined_no_strategy_script(app: tauri::AppHandle, config: CombinedNoCon
         let dir = if market_making.exists() { market_making } else { root };
         dialog = dialog.set_directory(dir);
     }
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
     let path = dialog.blocking_save_file();
     match path {
         Some(p) => {
@@ -1783,6 +1794,7 @@ fn save_combined_no_strategy_script(app: tauri::AppHandle, config: CombinedNoCon
                 }
             }
 
+            bring_main_to_front(&app);
             Ok(path_buf.display().to_string())
         }
         None => Err("Save cancelled".to_string()),
@@ -1793,16 +1805,20 @@ fn save_combined_no_strategy_script(app: tauri::AppHandle, config: CombinedNoCon
 #[tauri::command]
 fn save_market_maker_script(app: tauri::AppHandle, tickers: Vec<String>) -> Result<String, String> {
     let script = market_maker_script_content(&tickers);
-    let path = app
+    let mut dialog = app
         .dialog()
         .file()
         .add_filter("Python", &["py"])
-        .set_file_name("market_maker.py")
-        .blocking_save_file();
+        .set_file_name("market_maker.py");
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
+    let path = dialog.blocking_save_file();
     match path {
         Some(p) => {
             let path_buf = p.into_path().map_err(|e| e.to_string())?;
             fs::write(&path_buf, &script).map_err(|e| e.to_string())?;
+            bring_main_to_front(&app);
             Ok(path_buf.display().to_string())
         }
         None => Err("Save cancelled".to_string()),
@@ -1875,6 +1891,14 @@ fn start_headless_monitor(app: tauri::AppHandle, monitor: Monitor) -> Result<(),
 
 fn which_python() -> String {
     std::env::var("ODDSMANAGER_PYTHON").unwrap_or_else(|_| "python".to_string())
+}
+
+/// Bring the main app window to front and focus it (e.g. after save dialog on Windows).
+fn bring_main_to_front(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
 }
 
 /// Bring the main app window to front and focus it (e.g. when showing an alert).
