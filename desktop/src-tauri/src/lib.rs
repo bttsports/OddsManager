@@ -1415,30 +1415,31 @@ fn mm_service_installer_content(config: &MmStrategyConfig) -> String {
     format!(
         r#"#!/bin/bash
 # Install and start the market-making strategy as a systemd service.
-# Run this on your VPS (e.g. DigitalOcean) after copying the strategy script and this installer.
+# Run this on your VPS (e.g. DigitalOcean) from the market_making folder.
 #
 # Prerequisites:
 #   - Project cloned to PROJECT_ROOT
 #   - venv created and deps installed
 #   - .env with KALSHI_API_KEY, KALSHI_PRIVATE_KEY_PATH
+#   - Strategy script and this installer in market_making/
 #
-# Usage: ./install_{install_sh}.sh
-# Or:    bash install_{install_sh}.sh
+# Usage (from market_making/): ./install_{install_sh}.sh
+# Or:  cd market_making && bash install_{install_sh}.sh
 
 set -e
 
-# Edit these if your paths differ:
+# When run from market_making/, PROJECT_ROOT defaults to parent dir
 DEPLOY_USER="${{DEPLOY_USER:-your_user}}"
-PROJECT_ROOT="${{PROJECT_ROOT:-/home/your_user/projects/OddsManager}}"
+PROJECT_ROOT="${{PROJECT_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}}"
 SCRIPT_NAME="{script_name}"
 SERVICE_NAME="{service_name}"
 
 PYTHON="${{PROJECT_ROOT}}/venv/bin/python"
-SCRIPT_PATH="${{PROJECT_ROOT}}/{script_name}"
+SCRIPT_PATH="${{PROJECT_ROOT}}/market_making/{script_name}"
 
 if [[ ! -f "$SCRIPT_PATH" ]]; then
   echo "Error: Strategy script not found at $SCRIPT_PATH"
-  echo "Copy $SCRIPT_NAME to your project root first."
+  echo "Copy $SCRIPT_NAME to market_making/ first."
   exit 1
 fi
 
@@ -1559,7 +1560,9 @@ fn save_mm_strategy_script(app: tauri::AppHandle, config: MmStrategyConfig) -> R
         .add_filter("Python", &["py"])
         .set_file_name(&default_name);
     if let Ok(root) = project_root() {
-        dialog = dialog.set_directory(root);
+        let market_making = root.join("market_making");
+        let dir = if market_making.exists() { market_making } else { root };
+        dialog = dialog.set_directory(dir);
     }
     let path = dialog.blocking_save_file();
     match path {

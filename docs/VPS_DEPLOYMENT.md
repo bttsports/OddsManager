@@ -239,9 +239,61 @@ Restarts a stopped strategy (e.g. after it hit max shares).
 
 ---
 
-## 10. systemd service: Market Making bot
+## 10. Market Making: strategy script + installer (one bot per strategy)
 
-Add the market making bot service:
+For a persistent 24/7 bot per strategy, use **Generate strategy script** in the app. This produces:
+
+- **Strategy script** (`.py`): saved to `market_making/` in the project root
+- **Installer** (`.sh`): saved to `desktop/src-tauri/market_making_services/`
+
+### File locations
+
+| File | Local path | VPS path (after copy) |
+|------|------------|------------------------|
+| Strategy script | `market_making/mm_KXMAINE94_26.py` | `market_making/mm_KXMAINE94_26.py` |
+| Installer | `desktop/src-tauri/market_making_services/install_mm_KXMAINE94_26.sh` | `market_making/install_mm_KXMAINE94_26.sh` |
+
+### Deploy and run
+
+1. **In the app:** Load stakes, configure them, click **Generate strategy script**, and save. The `.py` goes to `market_making/` and the `.sh` is written to `desktop/src-tauri/market_making_services/`.
+
+2. **Copy to the VPS** (adjust paths and event name):
+
+   ```bash
+   # From your local machine (PowerShell or bash)
+   scp market_making/mm_KXMAINE94_26.py your_user@YOUR_VPS_IP:/home/your_user/projects/OddsManager/market_making/
+   scp desktop/src-tauri/market_making_services/install_mm_KXMAINE94_26.sh your_user@YOUR_VPS_IP:/home/your_user/projects/OddsManager/market_making/
+   ```
+
+3. **On the VPS**, run the installer from `market_making/`:
+
+   ```bash
+   cd /home/your_user/projects/OddsManager/market_making
+   chmod +x install_mm_KXMAINE94_26.sh
+   ./install_mm_KXMAINE94_26.sh
+   ```
+
+   The installer creates the systemd service, enables it, and starts it. If your deploy user or project path differs, override:
+
+   ```bash
+   DEPLOY_USER=myuser PROJECT_ROOT=/home/myuser/projects/OddsManager ./install_mm_KXMAINE94_26.sh
+   ```
+
+4. **Multiple strategies:** Generate a separate script and installer for each event, copy both to `market_making/` on the VPS, and run each installer. Each creates its own systemd service (e.g. `oddsmanager-mm-kxmain94`, `oddsmanager-mm-txsenate`).
+
+### Useful commands (per-strategy service)
+
+| Command | Purpose |
+|---------|---------|
+| `sudo systemctl status oddsmanager-mm-kxmain94` | Check status |
+| `sudo systemctl restart oddsmanager-mm-kxmain94` | Restart |
+| `sudo journalctl -u oddsmanager-mm-kxmain94 -f` | Tail logs |
+
+---
+
+## 10b. Market Making: single config (legacy)
+
+For one bot using `config.json` instead of generated scripts:
 
 ```bash
 sudo nano /etc/systemd/system/oddsmanager-market-making.service
@@ -267,19 +319,18 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-**Config:** The bot reads `market_making/config.json`. In the app's Market Making tab: configure stakes, then click **Save config for VPS** and save the JSON. Copy it to the VPS:
+**Config:** The bot reads `market_making/config.json`. In the app: configure stakes, click **Save config for VPS**, save the JSON. Copy to the VPS:
 
 ```bash
 scp mm_Event_26_config.json your_user@YOUR_VPS_IP:/home/your_user/projects/OddsManager/market_making/config.json
 ```
 
-Enable and start:
+Then:
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable oddsmanager-market-making
 sudo systemctl start oddsmanager-market-making
-sudo systemctl status oddsmanager-market-making
 ```
 
 ---
@@ -306,10 +357,11 @@ sudo systemctl status oddsmanager-market-making
 
 | Command | Purpose |
 |---------|---------|
-| `sudo systemctl status oddsmanager-kalshi-api` | Check status |
-| `sudo systemctl restart oddsmanager-kalshi-api` | Restart service |
-| `sudo journalctl -u oddsmanager-kalshi-api -f` | Tail logs |
-| `sudo journalctl -u oddsmanager-kalshi-api -n 100` | Last 100 log lines |
+| `sudo systemctl status oddsmanager-kalshi-api` | Check Kalshi API status |
+| `sudo systemctl restart oddsmanager-kalshi-api` | Restart Kalshi API |
+| `sudo journalctl -u oddsmanager-kalshi-api -f` | Tail Kalshi API logs |
+| `sudo systemctl status oddsmanager-mm-<event>` | Check market-making bot (e.g. `oddsmanager-mm-kxmain94`) |
+| `sudo journalctl -u oddsmanager-mm-kxmain94 -f` | Tail market-making bot logs |
 
 ---
 

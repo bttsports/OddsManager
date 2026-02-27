@@ -1,29 +1,30 @@
 #!/bin/bash
 # Install and start the market-making strategy as a systemd service.
-# Run this on your VPS (e.g. DigitalOcean) after copying the strategy script and this installer.
+# Run this on your VPS (e.g. DigitalOcean) from the market_making folder.
 #
 # Prerequisites:
 #   - Project cloned to PROJECT_ROOT
 #   - venv created and deps installed
 #   - .env with KALSHI_API_KEY, KALSHI_PRIVATE_KEY_PATH
+#   - Strategy script and this installer in market_making/
 #
-# Usage: ./install_KXTXSENDPRIMARYMOV_26MAR03.sh
-# Or:    bash install_KXTXSENDPRIMARYMOV_26MAR03.sh
+# Usage (from market_making/): ./install_KXTXSENDPRIMARYMOV_26MAR03.sh
+# Or:  cd market_making && bash install_KXTXSENDPRIMARYMOV_26MAR03.sh
 
 set -e
 
-# Edit these if your paths differ:
+# When run from market_making/, PROJECT_ROOT defaults to parent dir
 DEPLOY_USER="${DEPLOY_USER:-your_user}"
-PROJECT_ROOT="${PROJECT_ROOT:-/home/your_user/projects/OddsManager}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 SCRIPT_NAME="mm_KXTXSENDPRIMARYMOV_26MAR03.py"
 SERVICE_NAME="oddsmanager-mm-kxtxsendprimarymov26mar03"
 
 PYTHON="${PROJECT_ROOT}/venv/bin/python"
-SCRIPT_PATH="${PROJECT_ROOT}/mm_KXTXSENDPRIMARYMOV_26MAR03.py"
+SCRIPT_PATH="${PROJECT_ROOT}/market_making/mm_KXTXSENDPRIMARYMOV_26MAR03.py"
 
 if [[ ! -f "$SCRIPT_PATH" ]]; then
   echo "Error: Strategy script not found at $SCRIPT_PATH"
-  echo "Copy $SCRIPT_NAME to your project root first."
+  echo "Copy $SCRIPT_NAME to market_making/ first."
   exit 1
 fi
 

@@ -101,3 +101,6 @@ Press CTRL+C to quit
 127.0.0.1 - - [26/Feb/2026 14:00:20] "GET /markets?env=prod&limit=200&status=open&event_ticker=KXTXSENDPRIMARYMOV-26MAR03 HTTP/1.1" 200 -
 127.0.0.1 - - [26/Feb/2026 14:15:56] "GET /health HTTP/1.1" 200 -
 127.0.0.1 - - [26/Feb/2026 14:15:58] "GET /market-making/strategies?env=demo HTTP/1.1" 404 -
+127.0.0.1 - - [26/Feb/2026 15:02:13] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [26/Feb/2026 15:02:16] "GET /market-making/strategies?env=demo HTTP/1.1" 404 -
+127.0.0.1 - - [26/Feb/2026 15:02:23] "GET /markets?env=prod&limit=200&status=open&event_ticker=KXTXSENDPRIMARYMOV-26MAR03 HTTP/1.1" 200 -
