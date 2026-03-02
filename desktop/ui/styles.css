@@ -931,8 +931,31 @@ button.danger:hover {
   width: 100%;
   padding: 0.5rem 0.75rem;
 }
+.cns-include-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-width: 3.5rem;
+}
 .cns-stake-row .mm-stake-ticker { font-family: var(--mono, monospace); font-weight: 600; }
 .cns-stake-row .mm-stake-title { flex: 1; color: var(--muted); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cns-alerts-list, .cns-scripts-list { max-height: 200px; overflow-y: auto; margin-top: 0.5rem; }
+.cns-alert-row, .cns-script-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+}
+.cns-alert-row { background: rgba(255, 180, 0, 0.08); border-color: rgba(255, 180, 0, 0.3); }
+.cns-alert-reason { font-weight: 600; }
+.cns-alert-ts { margin-left: auto; font-size: 0.8rem; }
+.cns-script-row { background: var(--bg-alt, #1a1a1a); }
+.cns-script-event { font-family: var(--mono, monospace); font-weight: 600; }
+.cns-script-service { color: var(--muted); font-size: 0.85rem; }
 .mm-stake-ticker { font-family: var(--mono, monospace); font-weight: 600; }
 .mm-stake-title { flex: 1; color: var(--muted); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mm-stake-form {

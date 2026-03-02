@@ -25,6 +25,7 @@ chrono = "0.4"
 uuid = { version = "1", features = ["v4"] }
 opener = "0.6"
 reqwest = { version = "0.12", features = ["json", "blocking"] }
+tiny_http = "0.12"
 
 [features]
 default = ["custom-protocol"]

@@ -15,6 +15,9 @@ $ErrorActionPreference = "Stop"
 # Point the app at your OddsManager project root
 $env:ODDSMANAGER_PROJECT_ROOT = "C:\Users\davpo\VSCodeProjects\OddsManager"
 
+# Enable full backtrace on panic (for debugging)
+$env:RUST_BACKTRACE = "1"
+
 # Change into the Tauri project and run the dev app
 Set-Location -Path (Join-Path $env:ODDSMANAGER_PROJECT_ROOT "desktop\src-tauri")
 cargo tauri dev

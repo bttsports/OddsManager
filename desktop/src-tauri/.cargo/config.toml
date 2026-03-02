@@ -1,0 +1,3 @@
+# Disable incremental compilation to reduce disk usage (avoids query-cache.bin growth)
+[profile.dev]
+incremental = false

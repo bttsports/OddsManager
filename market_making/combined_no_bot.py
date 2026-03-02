@@ -1,7 +1,9 @@
 """
 Combined No Spread bot for Kalshi.
-Offers No liquidity on all stakes when combined best No ask < max_combined.
-Cancels all orders immediately when condition fails.
+Buys No at median bid-ask pricing, split from max_combined across included stakes.
+Uses median of each market's No bid-ask; averages across stakes. Offers at target
+prices summing to max_combined. For half-cent rounding, assigns higher price to
+the side with more liquidity. For 2-outcome markets primarily.
 Run: python -m market_making.combined_no_bot
 """
 from __future__ import annotations
@@ -61,23 +63,75 @@ def send_alert(url: Optional[str], reason: str, details: Optional[dict] = None) 
             print(f"Alert webhook failed: {e}")
 
 
-def get_best_no_ask(client: Any, ticker: str) -> Optional[int]:
+def _get_no_bid_ask(client: Any, ticker: str) -> Optional[tuple[int, int, float, dict[int, int]]]:
     """
-    Fetch orderbook and return best No ask (price at which we'd sell No).
-    best_no_ask = 100 - best_yes_bid. Returns None if orderbook empty/failed.
+    Fetch orderbook and return (no_bid, no_ask, median, no_price_to_qty).
+    No ask = 100 - best_yes_bid. Median = (bid + ask) / 2.
+    no_price_to_qty = {price: qty} from the no orderbook for liquidity lookups.
+    Returns None if orderbook empty/failed.
     """
     try:
         data = client.get_orderbook(ticker)
         ob = data.get("orderbook") or {}
         yes_bids = ob.get("yes") or []
-        if not yes_bids:
+        no_bids = ob.get("no") or []
+        if not yes_bids or not no_bids:
             return None
         best_yes_bid = int(yes_bids[-1][0])
+        best_no_bid = int(no_bids[-1][0])
         best_no_ask = 100 - best_yes_bid
-        return max(1, min(99, best_no_ask))
+        median = (best_no_bid + best_no_ask) / 2.0
+        price_to_qty: dict[int, int] = {int(p): int(q) for p, q in no_bids}
+        return (
+            max(1, min(99, best_no_bid)),
+            max(1, min(99, best_no_ask)),
+            median,
+            price_to_qty,
+        )
     except Exception as e:
         print(f"Orderbook fetch failed for {ticker}: {e}")
         return None
+
+
+def compute_offer_prices(
+    tickers: list[str],
+    bid_ask_data: dict[str, tuple[int, int, float, dict[int, int]]],
+    max_combined: int,
+) -> dict[str, int]:
+    """
+    Compute offer price per ticker. Target sum = max_combined.
+    Split evenly. If half-cent (e.g. 48.5 for 2 tickers), assign the higher
+    price (49) to the ticker with more liquidity at that price.
+    """
+    n = len(tickers)
+    if n == 0:
+        return {}
+    base = max_combined // n
+    remainder = max_combined - base * n
+
+    if remainder == 0:
+        return {t: base for t in tickers}
+
+    # remainder > 0: assign base+1 to 'remainder' tickers.
+    # Tiebreak: assign base+1 to tickers with more liquidity at base+1
+    higher_price = base + 1
+
+    def liquidity_at(ticker: str, price: int) -> int:
+        d = bid_ask_data.get(ticker)
+        if not d:
+            return 0
+        _, _, _, price_to_qty = d
+        return price_to_qty.get(price, 0)
+
+    sorted_tickers = sorted(
+        tickers,
+        key=lambda t: liquidity_at(t, higher_price),
+        reverse=True,
+    )
+    result: dict[str, int] = {}
+    for i, t in enumerate(sorted_tickers):
+        result[t] = higher_price if i < remainder else base
+    return result
 
 
 def run(config: dict, env: Optional[str] = None) -> None:
@@ -130,64 +184,85 @@ def run(config: dict, env: Optional[str] = None) -> None:
 
     while True:
         try:
-            # Fetch orderbooks for all tickers
-            best_no_asks: dict[str, int] = {}
+            # Fetch orderbooks: No bid, No ask, median per ticker
+            bid_ask_data: dict[str, tuple[int, int, float, dict[int, int]]] = {}
             for ticker in tickers:
-                ask = get_best_no_ask(client, ticker)
-                if ask is not None:
-                    best_no_asks[ticker] = ask
+                row = _get_no_bid_ask(client, ticker)
+                if row is not None:
+                    bid_ask_data[ticker] = row
                 else:
-                    best_no_asks[ticker] = 99  # Conservative: treat as expensive
+                    # Conservative: treat as expensive (high median)
+                    bid_ask_data[ticker] = (99, 99, 99.0, {})
 
-            combined = sum(best_no_asks.values())
+            if len(bid_ask_data) < len(tickers):
+                # Some failed; skip this cycle
+                time.sleep(check_interval)
+                continue
 
-            if combined >= max_combined:
-                # Condition failed: cancel all orders
-                if our_order_ids:
-                    for oid in list(our_order_ids):
-                        try:
-                            client.cancel_order(oid)
-                            our_order_ids.discard(oid)
-                        except Exception as e:
-                            print(f"Cancel failed {oid}: {e}")
-                    print(f"Condition failed (combined={combined} >= {max_combined}). Cancelled all orders.")
-                    if alert_url:
-                        send_alert(
-                            alert_url,
-                            f"combined_no_condition_failed",
-                            {"combined": combined, "max_combined": max_combined},
-                        )
+            # Condition: use combined best No bids (not median)
+            combined_no_bids = sum(d[0] for d in bid_ask_data.values())
+            combined_median = sum(d[2] for d in bid_ask_data.values())
+
+            if combined_no_bids >= max_combined:
+                # Condition failed: leave orders as-is (no cancel). Won't refill if filled.
+                print(
+                    f"Condition not met (combined_no_bids={combined_no_bids} >= {max_combined}). "
+                    "Leaving resting orders; no refill if filled."
+                )
+                if alert_url:
+                    send_alert(
+                        alert_url,
+                        "combined_no_condition_failed",
+                        {
+                            "combined_no_bids": combined_no_bids,
+                            "max_combined": max_combined,
+                        },
+                    )
                 orders_up = False
             else:
-                # Check if any of our orders filled (no longer resting) - replace if so
-                if our_order_ids and event_ticker:
+                # Condition passes: compute offer prices, ensure full shares resting
+                offer_prices = compute_offer_prices(tickers, bid_ask_data, max_combined)
+                target_sum = sum(offer_prices.values())
+
+                our_resting: dict[str, tuple[str, int]] = {}  # ticker -> (order_id, remaining_count)
+                if event_ticker:
                     try:
                         resp = client.get_orders(limit=200, status="resting", event_ticker=event_ticker)
-                        resting_ids = {
-                            str(o.get("order_id") or o.get("id") or "")
-                            for o in (resp.get("orders") or [])
-                        }
-                        missing = our_order_ids - resting_ids
-                        if missing:
-                            # Cancel any still resting so we can place fresh (avoids 409)
-                            for oid in list(our_order_ids):
-                                try:
-                                    client.cancel_order(oid)
-                                except Exception as e:
-                                    print(f"Cancel {oid}: {e}")
-                            our_order_ids.clear()
-                            orders_up = False
-                            print(f"Orders filled or gone: {missing}. Replacing.")
+                        for o in resp.get("orders") or []:
+                            cid = (o.get("client_order_id") or "").strip()
+                            if not cid.startswith("combined_no_"):
+                                continue
+                            ticker = (o.get("ticker") or "").strip()
+                            oid = str(o.get("order_id") or o.get("id") or "")
+                            remaining = int(o.get("remaining_count") or 0)
+                            if ticker and oid:
+                                our_resting[ticker] = (oid, remaining)
                     except Exception as e:
-                        print(f"Could not verify resting orders: {e}")
+                        print(f"Could not fetch resting orders: {e}")
 
-                # Condition passes: place orders if we don't have them up
-                if not orders_up:
-                    for ticker, no_price in best_no_asks.items():
+                needs_refill = [
+                    t for t in tickers
+                    if t not in our_resting or our_resting[t][1] < shares
+                ]
+
+                if needs_refill:
+                    for ticker in needs_refill:
+                        if ticker in our_resting:
+                            oid, rem = our_resting[ticker]
+                            try:
+                                client.cancel_order(oid)
+                                our_order_ids.discard(oid)
+                                if rem < shares:
+                                    print(f"Refill {ticker}: had {rem}, replacing with {shares}")
+                            except Exception as e:
+                                print(f"Cancel {oid}: {e}")
+
+                    for ticker in needs_refill:
+                        no_price = offer_prices.get(ticker, max_combined // len(tickers))
                         try:
                             r = client.create_order(
                                 ticker=ticker,
-                                action="sell",
+                                action="buy",
                                 side="no",
                                 count=shares,
                                 no_price=no_price,
@@ -196,9 +271,12 @@ def run(config: dict, env: Optional[str] = None) -> None:
                             oid = r.get("order", {}).get("order_id") or r.get("order_id")
                             if oid:
                                 our_order_ids.add(str(oid))
-                            print(f"Placed sell No {ticker} @ {no_price}c x{shares} (combined={combined})")
+                            print(
+                                f"Placed buy No {ticker} @ {no_price}c x{shares} "
+                                f"(median_sum={combined_median:.1f}, target_sum={target_sum})"
+                            )
                         except Exception as e:
-                            print(f"Place sell No failed {ticker}: {e}")
+                            print(f"Place buy No failed {ticker}: {e}")
                     orders_up = True
 
         except Exception as e:

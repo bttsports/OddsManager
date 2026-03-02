@@ -100,8 +100,16 @@ const btnCnsLoadStakes = document.getElementById("btn-cns-load-stakes");
 const cnsStakesListEl = document.getElementById("cns-stakes-list");
 const cnsEventInfoEl = document.getElementById("cns-event-info");
 const btnCnsGenerateStrategyScript = document.getElementById("btn-cns-generate-strategy-script");
+const cnsAlertsListEl = document.getElementById("cns-alerts-list");
+const cnsScriptsListEl = document.getElementById("cns-scripts-list");
+const btnCnsRefreshVps = document.getElementById("btn-cns-refresh-vps");
+const btnCnsRefreshScripts = document.getElementById("btn-cns-refresh-scripts");
+const cnsVpsHost = document.getElementById("cns-vps-host");
+const cnsVpsUser = document.getElementById("cns-vps-user");
 
 let kalshiBatchTickers = [];
+let cnsAlerts = [];
+let cnsVpsStatus = [];
 let mmStakes = [];
 let cnsStakes = [];
 
@@ -737,6 +745,10 @@ function showKalshiSection(section) {
     });
   }
   if (section === "market-making" && typeof loadMmStrategies === "function") loadMmStrategies();
+  if (section === "combined-no-spread") {
+    if (typeof loadCnsScriptsList === "function") loadCnsScriptsList();
+    if (typeof renderCnsAlerts === "function") renderCnsAlerts();
+  }
 }
 
 if (kalshiSubNav) {
@@ -1333,6 +1345,7 @@ function renderCnsStakeRow(m) {
   return `<div class="mm-stake-row cns-stake-row" data-ticker="${escapeAttr(ticker)}">
     <label class="cns-stake-include">
       <input type="checkbox" data-cns-include checked />
+      <span class="cns-include-label">Include</span>
       <span class="mm-stake-ticker">${escapeHtml(ticker)}</span>
       <span class="mm-stake-title" title="${escapeAttr(m.title || "")}">${escapeHtml(title)}</span>
     </label>
@@ -1386,6 +1399,91 @@ if (btnCnsLoadStakes && cnsEventTicker && cnsStakesListEl) {
   });
 }
 
+async function loadCnsScriptsList() {
+  if (!cnsScriptsListEl) return;
+  try {
+    const scripts = await invoke("list_combined_no_scripts");
+    const list = Array.isArray(scripts) ? scripts : [];
+    const statusMap = {};
+    cnsVpsStatus.forEach((s) => { statusMap[s.service_name] = s; });
+    if (list.length === 0) {
+      cnsScriptsListEl.innerHTML = "<p class=\"empty-state\">No generated scripts yet. Generate and save a strategy above.</p>";
+    } else {
+      cnsScriptsListEl.innerHTML = list.map((s) => {
+        const st = statusMap[s.service_name];
+        const statusBadge = st
+          ? `<span class="status-pill status-${st.active ? "on" : "off"}">${escapeHtml(st.status)}</span>`
+          : "<span class=\"meta\">—</span>";
+        return `<div class="cns-script-row">
+          <span class="cns-script-event">${escapeHtml(s.event_ticker)}</span>
+          <span class="cns-script-service">${escapeHtml(s.service_name)}</span>
+          ${statusBadge}
+        </div>`;
+      }).join("");
+    }
+  } catch (e) {
+    cnsScriptsListEl.innerHTML = "<p class=\"empty-state\">Error: " + escapeHtml(String(e)) + "</p>";
+  }
+}
+
+function renderCnsAlerts() {
+  if (!cnsAlertsListEl) return;
+  if (cnsAlerts.length === 0) {
+    cnsAlertsListEl.innerHTML = "<p class=\"empty-state\">No alerts yet.</p>";
+  } else {
+    cnsAlertsListEl.innerHTML = cnsAlerts.slice().reverse().map((a) => {
+      const reason = escapeHtml(a.reason || "alert");
+      const details = a.details || {};
+      const extraKeys = Object.keys(a).filter((k) => k !== "reason" && k !== "details" && k !== "_ts");
+      const extraObj = extraKeys.length ? Object.fromEntries(extraKeys.map((k) => [k, a[k]])) : {};
+      const allExtra = { ...details, ...extraObj };
+      const extra = Object.keys(allExtra).length
+        ? " " + Object.entries(allExtra).map(([k, v]) => escapeHtml(k) + "=" + escapeHtml(JSON.stringify(v))).join(" ")
+        : "";
+      const ts = a._ts ? new Date(a._ts).toLocaleString() : "";
+      return `<div class="cns-alert-row">
+        <span class="cns-alert-reason">${reason}</span>${extra}
+        ${ts ? `<span class="meta cns-alert-ts">${escapeHtml(ts)}</span>` : ""}
+      </div>`;
+    }).join("");
+  }
+}
+
+if (listen) {
+  listen("combined-no-alert", function (ev) {
+    const p = ev.payload || {};
+    p._ts = Date.now();
+    cnsAlerts.push(p);
+    if (cnsAlerts.length > 100) cnsAlerts = cnsAlerts.slice(-100);
+    renderCnsAlerts();
+    invoke("bring_main_window_to_front").catch(() => {});
+  }).catch(() => {});
+}
+
+if (btnCnsRefreshScripts) {
+  btnCnsRefreshScripts.addEventListener("click", () => loadCnsScriptsList());
+}
+
+if (btnCnsRefreshVps && cnsVpsHost) {
+  btnCnsRefreshVps.addEventListener("click", async () => {
+    const host = (cnsVpsHost && cnsVpsHost.value || "").trim();
+    if (!host) {
+      showToast("Enter VPS host.", "error");
+      return;
+    }
+    try {
+      cnsVpsStatus = await invoke("get_combined_no_vps_status", {
+        host,
+        user: (cnsVpsUser && cnsVpsUser.value || "root").trim() || "root",
+      });
+      loadCnsScriptsList();
+      showToast("VPS status refreshed.");
+    } catch (e) {
+      showToast((e && e.toString()) || "VPS status failed", "error");
+    }
+  });
+}
+
 if (btnCnsGenerateStrategyScript && cnsStakesListEl) {
   btnCnsGenerateStrategyScript.addEventListener("click", async () => {
     const eventTicker = (cnsEventTicker && cnsEventTicker.value.trim()) || "";
@@ -1400,43 +1498,39 @@ if (btnCnsGenerateStrategyScript && cnsStakesListEl) {
     }
     const maxCombined = parseInt(document.getElementById("cns-max-combined")?.value || "99", 10) || 99;
     const shares = parseInt(document.getElementById("cns-shares")?.value || "10", 10) || 10;
+    const checkInterval = parseInt(document.getElementById("cns-check-interval")?.value || "30", 10) || 30;
     const alertWebhook = (document.getElementById("cns-alert-webhook")?.value || "").trim() || null;
+    const config = {
+      event_ticker: eventTicker,
+      env: cnsEnv(),
+      check_interval_sec: Math.max(5, checkInterval),
+      max_combined: maxCombined,
+      shares,
+      tickers,
+      alert_webhook_url: alertWebhook,
+    };
     try {
-      const path = await invoke("save_combined_no_strategy_script", {
-        config: {
-          event_ticker: eventTicker,
-          env: cnsEnv(),
-          check_interval_sec: 5,
-          max_combined: maxCombined,
-          shares,
-          tickers,
-          alert_webhook_url: alertWebhook,
-        },
-      });
-      showToast("Strategy script saved to " + path + ". Installer written to desktop/src-tauri/market_making_services/");
-    } catch (err) {
-      const msg = (err && err.toString()) || "Generate failed";
-      if (msg.includes("cancelled") || msg.includes("Save cancelled")) {
-        showToast("Save cancelled.");
-      } else {
-        try {
-          const script = await invoke("generate_combined_no_strategy_script", {
-            config: {
-              event_ticker: eventTicker,
-              env: cnsEnv(),
-              check_interval_sec: 5,
-              max_combined: maxCombined,
-              shares,
-              tickers,
-              alert_webhook_url: alertWebhook,
-            },
-          });
-          await navigator.clipboard.writeText(script);
-          showToast("Script copied to clipboard (save cancelled or failed).");
-        } catch (e2) {
-          showToast(msg, "error");
-        }
+      const script = await invoke("generate_combined_no_strategy_script", { config });
+      const defaultName = "combined_no_" + (eventTicker || "strategy").replace(/[- ]/g, "_") + ".py";
+      const dialogSave = (window.__TAURI__ && window.__TAURI__.dialog && window.__TAURI__.dialog.save) || null;
+      if (!dialogSave) {
+        await navigator.clipboard.writeText(script);
+        showToast("Dialog unavailable. Script copied to clipboard.");
+        return;
       }
+      const path = await dialogSave({
+        filters: [{ name: "Python", extensions: ["py"] }],
+        defaultPath: defaultName,
+      });
+      if (path) {
+        const written = await invoke("write_combined_no_script", { path, script, config });
+        showToast("Strategy script saved to " + written + ". Installer written to desktop/src-tauri/market_making_services/");
+        loadCnsScriptsList();
+      } else {
+        showToast("Save cancelled.");
+      }
+    } catch (err) {
+      showToast((err && err.toString()) || "Generate failed", "error");
     }
   });
 }
