@@ -1612,7 +1612,7 @@ fn save_mm_strategy_script(app: tauri::AppHandle, config: MmStrategyConfig) -> R
         .set_file_name(&default_name);
     if let Ok(root) = project_root() {
         let market_making = root.join("market_making");
-        let dir = if market_making.exists() { market_making } else { root };
+        let dir = if market_making.exists() { market_making } else { root.clone() };
         dialog = dialog.set_directory(dir);
     }
     if let Some(window) = app.get_webview_window("main") {
@@ -1624,9 +1624,9 @@ fn save_mm_strategy_script(app: tauri::AppHandle, config: MmStrategyConfig) -> R
             let path_buf = p.into_path().map_err(|e| e.to_string())?;
             fs::write(&path_buf, &script).map_err(|e| e.to_string())?;
 
-            // Also write the VPS installer bash script to project_root/market_making_services/
+            // Also write the VPS installer bash script to desktop/src-tauri/market_making_services/
             if let Ok(root) = project_root() {
-                let services_dir = root.join("market_making_services");
+                let services_dir = root.join("desktop").join("src-tauri").join("market_making_services");
                 if fs::create_dir_all(&services_dir).is_ok() {
                     let install_name = format!(
                         "install_mm_{}.sh",
@@ -1789,7 +1789,7 @@ fn write_combined_no_script(
     fs::write(&path_buf, &script).map_err(|e| e.to_string())?;
 
     if let Ok(root) = project_root() {
-        let services_dir = root.join("market_making_services");
+        let services_dir = root.join("desktop").join("src-tauri").join("market_making_services");
         if fs::create_dir_all(&services_dir).is_ok() {
             let install_name = format!(
                 "install_combined_no_{}.sh",
@@ -1936,6 +1936,7 @@ struct CombinedNoScriptInfo {
 #[tauri::command]
 fn list_combined_no_scripts() -> Result<Vec<CombinedNoScriptInfo>, String> {
     let root = project_root()?;
+    // Installers are written to desktop/src-tauri/market_making_services
     let dir = root.join("desktop").join("src-tauri").join("market_making_services");
     if !dir.exists() {
         return Ok(Vec::new());
