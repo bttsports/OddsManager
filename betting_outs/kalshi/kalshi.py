@@ -237,9 +237,17 @@ class KalshiHttpClient(KalshiBaseClient):
         limit: Optional[int] = None,
         cursor: Optional[str] = None,
         status: Optional[str] = None,
+        event_ticker: Optional[str] = None,
+        ticker: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get portfolio orders. status: resting, canceled, executed."""
-        params = {'limit': limit, 'cursor': cursor, 'status': status}
+        params = {
+            'limit': limit,
+            'cursor': cursor,
+            'status': status,
+            'event_ticker': event_ticker,
+            'ticker': ticker,
+        }
         params = {k: v for k, v in params.items() if v is not None}
         return self.get(self.portfolio_url + '/orders', params=params)
 

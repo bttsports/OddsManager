@@ -80,8 +80,9 @@ def get_best_no_ask(client: Any, ticker: str) -> Optional[int]:
 
 
 def run(config: dict, env: Optional[str] = None) -> None:
-    """Run the combined No spread loop."""
-    env = (env or config.get("env") or "DEMO").upper()
+    """Run the combined No spread loop. KALSHI_ENV (from env) overrides config env."""
+    env = (os.environ.get("KALSHI_ENV") or env or config.get("env") or "DEMO").upper()
+    event_ticker = config.get("event_ticker") or ""
     tickers = config.get("tickers") or []
     max_combined = int(config.get("max_combined") or 99)
     shares = int(config.get("shares") or 10)
@@ -131,6 +132,28 @@ def run(config: dict, env: Optional[str] = None) -> None:
                         )
                 orders_up = False
             else:
+                # Check if any of our orders filled (no longer resting) - replace if so
+                if our_order_ids and event_ticker:
+                    try:
+                        resp = client.get_orders(limit=200, status="resting", event_ticker=event_ticker)
+                        resting_ids = {
+                            str(o.get("order_id") or o.get("id") or "")
+                            for o in (resp.get("orders") or [])
+                        }
+                        missing = our_order_ids - resting_ids
+                        if missing:
+                            # Cancel any still resting so we can place fresh (avoids 409)
+                            for oid in list(our_order_ids):
+                                try:
+                                    client.cancel_order(oid)
+                                except Exception as e:
+                                    print(f"Cancel {oid}: {e}")
+                            our_order_ids.clear()
+                            orders_up = False
+                            print(f"Orders filled or gone: {missing}. Replacing.")
+                    except Exception as e:
+                        print(f"Could not verify resting orders: {e}")
+
                 # Condition passes: place orders if we don't have them up
                 if not orders_up:
                     for ticker, no_price in best_no_asks.items():

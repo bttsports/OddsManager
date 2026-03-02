@@ -103,8 +103,8 @@ def get_orderbook(client: Any, ticker: str, env: str) -> tuple[int, int]:
 
 
 def run(config: dict, env: Optional[str] = None) -> None:
-    """Run the market making loop."""
-    env = (env or config.get("env") or "DEMO").upper()
+    """Run the market making loop. KALSHI_ENV (from env) overrides config env."""
+    env = (os.environ.get("KALSHI_ENV") or env or config.get("env") or "DEMO").upper()
     event_ticker = config.get("event_ticker") or ""
     check_interval = int(config.get("check_interval_sec") or 30)
     alert_url = config.get("alert_webhook_url")
@@ -165,9 +165,8 @@ def run(config: dict, env: Optional[str] = None) -> None:
         if not ticker or state.get(ticker, {}).get("paused"):
             return
         s = state[ticker]
-        filled_count = int(order.get("count") or order.get("remaining_count") or 0)
-        if filled_count <= 0:
-            filled_count = int(order.get("yes_count") or order.get("no_count") or order.get("count") or 0)
+        # Kalshi Order: fill_count = contracts filled; initial_count = original size; remaining_count = unfilled (0 when executed)
+        filled_count = int(order.get("fill_count") or order.get("initial_count") or order.get("count") or 0)
         fill_price = order.get("yes_price") or order.get("no_price")
         if fill_price is not None:
             s["last_fill_price"] = int(fill_price)
@@ -183,9 +182,7 @@ def run(config: dict, env: Optional[str] = None) -> None:
         if max_shares is not None:
             remaining = int(max_shares) - s["total_filled"]
             if repost_size > remaining:
-                send_alert(alert_url, ticker, f"repost would exceed max_shares (filled={s['total_filled']})")
-                s["paused"] = True
-                return
+                repost_size = remaining  # cap to stay within max_shares
         best_bid, best_ask = get_orderbook(client, ticker, env)
         filled_side = (order.get("side") or "yes").lower()
         stake_side = (stake.get("side") or "yes").lower()
@@ -244,7 +241,7 @@ def run(config: dict, env: Optional[str] = None) -> None:
 
     while True:
         try:
-            resp = client.get_orders(limit=100, status="executed")
+            resp = client.get_orders(limit=200, status="executed", event_ticker=event_ticker)
             orders = resp.get("orders") or []
             for o in orders:
                 oid = str(o.get("order_id") or o.get("id") or "")
