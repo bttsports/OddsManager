@@ -1474,8 +1474,10 @@ if (btnCnsRefreshVps && cnsVpsHost) {
     }
     try {
       cnsVpsStatus = await invoke("get_combined_no_vps_status", {
-        host,
-        user: (cnsVpsUser && cnsVpsUser.value || "root").trim() || "root",
+        params: {
+          host,
+          user: (cnsVpsUser && cnsVpsUser.value || "root").trim() || "root",
+        },
       });
       loadCnsScriptsList();
       showToast("VPS status refreshed.");
