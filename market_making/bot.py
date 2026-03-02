@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import signal
 import sys
 import time
 import urllib.request
@@ -115,6 +116,32 @@ def run(config: dict, env: Optional[str] = None) -> None:
         return
 
     client = get_client(env)
+
+    def shutdown_cancel_all() -> None:
+        """On SIGTERM (systemd stop): batch cancel all resting mm_ orders for this event."""
+        if not event_ticker:
+            return
+        try:
+            resp = client.get_orders(limit=200, status="resting", event_ticker=event_ticker)
+            orders = resp.get("orders") or []
+            our_ids = [
+                str(o.get("order_id") or o.get("id") or "")
+                for o in orders
+                if (o.get("client_order_id") or "").strip().startswith("mm_")
+            ]
+            if our_ids:
+                client.batch_cancel_orders(our_ids)
+                print(f"Shutdown: batch cancelled {len(our_ids)} order(s)")
+            else:
+                print("Shutdown: no resting orders to cancel")
+        except Exception as e:
+            print(f"Shutdown cancel failed: {e}")
+        sys.exit(0)
+
+    def _on_sigterm(signum: int, frame: Any) -> None:
+        shutdown_cancel_all()
+
+    signal.signal(signal.SIGTERM, _on_sigterm)
 
     # Per-stake state: ticker -> {total_filled, last_fill_price, our_order_ids, paused}
     state: dict[str, dict] = {}

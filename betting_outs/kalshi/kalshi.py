@@ -169,16 +169,32 @@ class KalshiHttpClient(KalshiBaseClient):
         self.raise_if_bad_response(response)
         return response.json()
 
-    def delete(self, path: str, params: Dict[str, Any] = {}) -> Any:
+    def delete(self, path: str, params: Dict[str, Any] = None, json_body: Optional[dict] = None) -> Any:
         """Performs an authenticated DELETE request to the Kalshi API."""
         self.rate_limit()
-        response = requests.delete(
-            self.host + path,
-            headers=self.request_headers("DELETE", path),
-            params=params
-        )
+        kwargs = {"headers": self.request_headers("DELETE", path), "params": params or {}}
+        if json_body is not None:
+            kwargs["json"] = json_body
+        response = requests.delete(self.host + path, **kwargs)
         self.raise_if_bad_response(response)
-        return response.json()
+        return response.json() if response.content else {}
+
+    def batch_cancel_orders(self, order_ids: list[str]) -> Dict[str, Any]:
+        """Cancel multiple orders in one request. Kalshi limits to 20 per batch. Returns batch response."""
+        BATCH_SIZE = 20
+        all_results = {"cancelled_orders": [], "batch_responses": []}
+        for i in range(0, len(order_ids), BATCH_SIZE):
+            batch = order_ids[i : i + BATCH_SIZE]
+            try:
+                resp = self.delete(
+                    self.portfolio_url + "/orders/batched",
+                    json_body={"ids": batch},
+                )
+                all_results["batch_responses"].append(resp)
+                all_results["cancelled_orders"].extend(batch)
+            except Exception as e:
+                all_results["batch_responses"].append({"error": str(e)})
+        return all_results
 
     def get_balance(self) -> Dict[str, Any]:
         """Retrieves the account balance."""
