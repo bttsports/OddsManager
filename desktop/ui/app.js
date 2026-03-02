@@ -106,6 +106,7 @@ const btnCnsRefreshVps = document.getElementById("btn-cns-refresh-vps");
 const btnCnsRefreshScripts = document.getElementById("btn-cns-refresh-scripts");
 const cnsVpsHost = document.getElementById("cns-vps-host");
 const cnsVpsUser = document.getElementById("cns-vps-user");
+const cnsAlwaysPostFirst = document.getElementById("cns-always-post-first");
 
 let kalshiBatchTickers = [];
 let cnsAlerts = [];
@@ -1508,6 +1509,7 @@ if (btnCnsGenerateStrategyScript && cnsStakesListEl) {
       shares,
       tickers,
       alert_webhook_url: alertWebhook,
+      always_post_first: !!(cnsAlwaysPostFirst && cnsAlwaysPostFirst.checked),
     };
     try {
       const script = await invoke("generate_combined_no_strategy_script", { config });

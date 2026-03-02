@@ -5,3 +5,5 @@ Press CTRL+C to quit
 127.0.0.1 - - [02/Mar/2026 13:04:20] "GET /markets?env=prod&limit=200&status=open&event_ticker=KXTX02R-26 HTTP/1.1" 200 -
 127.0.0.1 - - [02/Mar/2026 13:10:27] "GET /health HTTP/1.1" 200 -
 127.0.0.1 - - [02/Mar/2026 13:10:48] "GET /markets?env=prod&limit=200&status=open&event_ticker=KXTX02R-26 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Mar/2026 13:29:00] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [02/Mar/2026 13:29:20] "GET /markets?env=demo&limit=200&status=open&event_ticker=KXTX02R-26 HTTP/1.1" 200 -

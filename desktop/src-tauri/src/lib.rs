@@ -1417,6 +1417,8 @@ struct CombinedNoConfig {
     tickers: Vec<String>,
     #[serde(default)]
     alert_webhook_url: Option<String>,
+    #[serde(default)]
+    always_post_first: bool,
 }
 
 fn default_check_interval() -> u32 { 30 }
@@ -1622,9 +1624,9 @@ fn save_mm_strategy_script(app: tauri::AppHandle, config: MmStrategyConfig) -> R
             let path_buf = p.into_path().map_err(|e| e.to_string())?;
             fs::write(&path_buf, &script).map_err(|e| e.to_string())?;
 
-            // Also write the VPS installer bash script to src-tauri/market_making_services/
+            // Also write the VPS installer bash script to project_root/market_making_services/
             if let Ok(root) = project_root() {
-                let services_dir = root.join("desktop").join("src-tauri").join("market_making_services");
+                let services_dir = root.join("market_making_services");
                 if fs::create_dir_all(&services_dir).is_ok() {
                     let install_name = format!(
                         "install_mm_{}.sh",
@@ -1787,7 +1789,7 @@ fn write_combined_no_script(
     fs::write(&path_buf, &script).map_err(|e| e.to_string())?;
 
     if let Ok(root) = project_root() {
-        let services_dir = root.join("desktop").join("src-tauri").join("market_making_services");
+        let services_dir = root.join("market_making_services");
         if fs::create_dir_all(&services_dir).is_ok() {
             let install_name = format!(
                 "install_combined_no_{}.sh",

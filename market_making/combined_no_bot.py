@@ -143,6 +143,7 @@ def run(config: dict, env: Optional[str] = None) -> None:
     shares = int(config.get("shares") or 10)
     check_interval = int(config.get("check_interval_sec") or 5)
     alert_url = config.get("alert_webhook_url")
+    always_post_first = bool(config.get("always_post_first"))
 
     if not tickers:
         print("No tickers in config. Exiting.")
@@ -155,6 +156,7 @@ def run(config: dict, env: Optional[str] = None) -> None:
     client = get_client(env)
     our_order_ids: set[str] = set()
     orders_up = False
+    first_orders_placed = False
 
     def shutdown_cancel_all() -> None:
         """On SIGTERM (systemd stop): batch cancel all resting combined_no_ orders for this event."""
@@ -204,7 +206,9 @@ def run(config: dict, env: Optional[str] = None) -> None:
             combined_no_bids = sum(d[0] for d in bid_ask_data.values())
             combined_median = sum(d[2] for d in bid_ask_data.values())
 
-            if combined_no_bids > max_combined:
+            allow_first_override = always_post_first and not first_orders_placed
+
+            if combined_no_bids > max_combined and not allow_first_override:
                 # Condition failed: leave orders as-is (no cancel). Won't refill if filled.
                 print(
                     f"Condition not met (combined_no_bids={combined_no_bids} > {max_combined}). "
@@ -258,6 +262,7 @@ def run(config: dict, env: Optional[str] = None) -> None:
                             except Exception as e:
                                 print(f"Cancel {oid}: {e}")
 
+                    placed_any = False
                     for ticker in needs_refill:
                         no_price = offer_prices.get(ticker, max_combined // len(tickers))
                         try:
@@ -272,12 +277,15 @@ def run(config: dict, env: Optional[str] = None) -> None:
                             oid = r.get("order", {}).get("order_id") or r.get("order_id")
                             if oid:
                                 our_order_ids.add(str(oid))
+                            placed_any = True
                             print(
                                 f"Placed buy No {ticker} @ {no_price}c x{shares} "
                                 f"(median_sum={combined_median:.1f}, target_sum={target_sum})"
                             )
                         except Exception as e:
                             print(f"Place buy No failed {ticker}: {e}")
+                    if placed_any:
+                        first_orders_placed = True
                     orders_up = True
 
         except Exception as e:
