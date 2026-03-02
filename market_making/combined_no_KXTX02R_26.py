@@ -25,7 +25,7 @@ os.chdir(_root)
 
 from market_making.combined_no_bot import run
 
-CONFIG_JSON = r'''{"event_ticker":"KXTX02R-26","env":"prod","check_interval_sec":30,"max_combined":97,"shares":1500,"tickers":["KXTX02R-26-STOT","KXTX02R-26-DCRE"],"alert_webhook_url":null}'''
+CONFIG_JSON = r'''{"event_ticker":"KXTX02R-26","env":"demo","check_interval_sec":15,"max_combined":97,"shares":1500,"tickers":["KXTX02R-26-STOT","KXTX02R-26-DCRE"],"alert_webhook_url":null}'''
 
 if __name__ == "__main__":
     config = json.loads(CONFIG_JSON)

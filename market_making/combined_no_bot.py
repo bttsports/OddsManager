@@ -199,14 +199,15 @@ def run(config: dict, env: Optional[str] = None) -> None:
                 time.sleep(check_interval)
                 continue
 
-            # Condition: use combined best No bids (not median)
+            # Condition: use combined best No bids (not median).
+            # We allow combined_no_bids == max_combined; only strictly above blocks orders.
             combined_no_bids = sum(d[0] for d in bid_ask_data.values())
             combined_median = sum(d[2] for d in bid_ask_data.values())
 
-            if combined_no_bids >= max_combined:
+            if combined_no_bids > max_combined:
                 # Condition failed: leave orders as-is (no cancel). Won't refill if filled.
                 print(
-                    f"Condition not met (combined_no_bids={combined_no_bids} >= {max_combined}). "
+                    f"Condition not met (combined_no_bids={combined_no_bids} > {max_combined}). "
                     "Leaving resting orders; no refill if filled."
                 )
                 if alert_url:

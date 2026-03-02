@@ -1801,7 +1801,6 @@ fn write_combined_no_script(
         }
     }
 
-    bring_main_to_front(&app);
     Ok(path_buf.display().to_string())
 }
 

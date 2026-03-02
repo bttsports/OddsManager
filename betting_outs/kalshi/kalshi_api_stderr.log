@@ -3,3 +3,5 @@ WARNING: This is a development server. Do not use it in a production deployment.
 Press CTRL+C to quit
 127.0.0.1 - - [02/Mar/2026 12:55:55] "GET /health HTTP/1.1" 200 -
 127.0.0.1 - - [02/Mar/2026 13:04:20] "GET /markets?env=prod&limit=200&status=open&event_ticker=KXTX02R-26 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Mar/2026 13:10:27] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [02/Mar/2026 13:10:48] "GET /markets?env=prod&limit=200&status=open&event_ticker=KXTX02R-26 HTTP/1.1" 200 -

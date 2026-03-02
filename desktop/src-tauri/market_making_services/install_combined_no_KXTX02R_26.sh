@@ -44,7 +44,7 @@ Group=$DEPLOY_USER
 WorkingDirectory=$PROJECT_ROOT
 EnvironmentFile=$PROJECT_ROOT/.env
 Environment=PATH=$(dirname $PYTHON):/usr/local/bin:/usr/bin:/bin
-Environment="KALSHI_ENV=PROD"
+Environment="KALSHI_ENV=DEMO"
 ExecStart=$PYTHON $SCRIPT_PATH
 Restart=always
 RestartSec=10

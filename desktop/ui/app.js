@@ -1525,7 +1525,9 @@ if (btnCnsGenerateStrategyScript && cnsStakesListEl) {
       if (path) {
         const written = await invoke("write_combined_no_script", { path, script, config });
         showToast("Strategy script saved to " + written + ". Installer written to desktop/src-tauri/market_making_services/");
-        loadCnsScriptsList();
+        setTimeout(function () {
+          if (typeof loadCnsScriptsList === "function") loadCnsScriptsList();
+        }, 0);
       } else {
         showToast("Save cancelled.");
       }
