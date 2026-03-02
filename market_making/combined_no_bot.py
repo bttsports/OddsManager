@@ -9,6 +9,7 @@ Run: python -m market_making.combined_no_bot
 from __future__ import annotations
 
 import json
+import math
 import os
 import signal
 import sys
@@ -99,22 +100,31 @@ def compute_offer_prices(
     max_combined: int,
 ) -> dict[str, int]:
     """
-    Compute offer price per ticker. Target sum = max_combined.
-    Split evenly. If half-cent (e.g. 48.5 for 2 tickers), assign the higher
-    price (49) to the ticker with more liquidity at that price.
+    Compute offer price per ticker using per‑market medians.
+
+    - Each leg is capped strictly below its own median.
+    - The sum of all legs is <= max_combined, backing off from medians
+      as needed (reducing lowest-liquidity legs first).
     """
     n = len(tickers)
     if n == 0:
         return {}
-    base = max_combined // n
-    remainder = max_combined - base * n
 
-    if remainder == 0:
-        return {t: base for t in tickers}
+    # Initial cap: just below each market's median.
+    caps: dict[str, int] = {}
+    for t in tickers:
+        _, _, median, _ = bid_ask_data.get(t, (0, 0, 0.0, {}))
+        if median <= 1:
+            caps[t] = 1
+        else:
+            caps[t] = max(1, int(math.floor(median)) - 1)
 
-    # remainder > 0: assign base+1 to 'remainder' tickers.
-    # Tiebreak: assign base+1 to tickers with more liquidity at base+1
-    higher_price = base + 1
+    total = sum(caps.values())
+    if total <= max_combined:
+        return caps
+
+    # Need to reduce total down to max_combined, taking from lowest‑liquidity legs first.
+    excess = total - max_combined
 
     def liquidity_at(ticker: str, price: int) -> int:
         d = bid_ask_data.get(ticker)
@@ -123,15 +133,26 @@ def compute_offer_prices(
         _, _, _, price_to_qty = d
         return price_to_qty.get(price, 0)
 
-    sorted_tickers = sorted(
-        tickers,
-        key=lambda t: liquidity_at(t, higher_price),
-        reverse=True,
-    )
-    result: dict[str, int] = {}
-    for i, t in enumerate(sorted_tickers):
-        result[t] = higher_price if i < remainder else base
-    return result
+    # Repeatedly reduce prices, starting from the lowest‑liquidity legs.
+    while excess > 0:
+        # Sort tickers by liquidity (ascending), so we shave the least liquid first.
+        ordered = sorted(
+            tickers,
+            key=lambda t: liquidity_at(t, caps.get(t, 1)) if caps.get(t, 1) > 1 else float("inf"),
+        )
+        progress = False
+        for t in ordered:
+            if excess <= 0:
+                break
+            if caps[t] > 1:
+                caps[t] -= 1
+                excess -= 1
+                progress = True
+        if not progress:
+            # All legs are already at 1; cannot reduce further.
+            break
+
+    return caps
 
 
 def run(config: dict, env: Optional[str] = None) -> None:
@@ -265,6 +286,10 @@ def run(config: dict, env: Optional[str] = None) -> None:
                     placed_any = False
                     for ticker in needs_refill:
                         no_price = offer_prices.get(ticker, max_combined // len(tickers))
+                        # Hard cap: never place at or above this market's median.
+                        _, _, median, _ = bid_ask_data.get(ticker, (0, 0, 0.0, {}))
+                        if median > 0 and no_price >= median:
+                            no_price = max(1, int(math.floor(median)) - 1)
                         try:
                             r = client.create_order(
                                 ticker=ticker,
